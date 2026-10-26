@@ -1,0 +1,6 @@
+{
+  "name": "Rasagulla",
+  "description": "Rasagulla - Premium cinematic streaming media player with multi-source HD playback for Android and Android TV.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
