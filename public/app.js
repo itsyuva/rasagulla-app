@@ -1,6 +1,7 @@
 /* ============================================================================
    RASAGULLA — STREAMING PLATFORM FOR WEB, MOBILE & SMART TV BROWSERS
-   Netflix / Apple TV+ / Prime Video Grade UI, Spatial D-Pad Engine & HLS Player
+   Netflix / Apple TV+ / Prime Video Grade UI, Deterministic Row-Based D-Pad
+   Engine, TV Remote KeyCodes, Virtual Cursor Scroll Paddles & HLS Player
    ============================================================================ */
 
 const ICONS = {
@@ -176,7 +177,6 @@ const HERO_CHARACTERS = [
     depthScale: 0.94,
     targetShow: "Celebrity MasterChef Tamil",
     targetTab: "home",
-    openShelf: true,
   },
   {
     id: "char_gopinath",
@@ -188,7 +188,6 @@ const HERO_CHARACTERS = [
     depthScale: 0.92,
     targetShow: "Neeya Naana",
     targetTab: "home",
-    openShelf: true,
   },
   {
     id: "char_vijay",
@@ -200,7 +199,6 @@ const HERO_CHARACTERS = [
     depthScale: 1.02,
     targetShow: "Bigg Boss Tamil",
     targetTab: "movies",
-    openShelf: false,
   },
   {
     id: "char_kamal",
@@ -212,7 +210,6 @@ const HERO_CHARACTERS = [
     depthScale: 1.05,
     targetShow: "Bigg Boss Tamil",
     targetTab: "home",
-    openShelf: true,
   },
   {
     id: "char_vjs",
@@ -224,7 +221,6 @@ const HERO_CHARACTERS = [
     depthScale: 1.02,
     targetShow: "Bigg Boss Tamil",
     targetTab: "shows",
-    openShelf: false,
   },
   {
     id: "char_anirudh",
@@ -236,7 +232,6 @@ const HERO_CHARACTERS = [
     depthScale: 0.92,
     targetShow: "Super Singer",
     targetTab: "home",
-    openShelf: true,
   },
   {
     id: "char_chef",
@@ -248,7 +243,6 @@ const HERO_CHARACTERS = [
     depthScale: 0.94,
     targetShow: "Cooku with Comali",
     targetTab: "home",
-    openShelf: true,
   },
 ];
 
@@ -459,6 +453,9 @@ const state = {
   activeTab: "home", // home | shows | movies | live | mylist
   selectedShow: "Bigg Boss Tamil",
   selectedSeason: null,
+  seasonEpisodes: null,
+  seasonEpisodesKey: null,
+  loadingSeason: false,
   heroIndex: 3,
   shelfOpenForShow: null,
   episodes: [...INITIAL_EPISODES],
@@ -469,7 +466,9 @@ const state = {
   toastMessage: null,
   myList: loadJsonStorage("rasagulla_mylist_v3", []),
   watchHistory: loadJsonStorage("rasagulla_history_v3", {}),
-  focusMemory: {},
+  rowFocusMemory: {},
+  lastMainStageFocusId: "hero-primary-btn",
+  lastLaunchedCardFocusId: "hero-primary-btn",
   player: {
     open: false,
     episode: null,
@@ -485,7 +484,6 @@ const state = {
     useProxy: false,
     fitCover: false,
     hudVisible: true,
-    exitConfirmOpen: false,
     hlsInstance: null,
     hudTimer: null,
     progressInterval: null,
@@ -514,7 +512,7 @@ function showToast(msg) {
   window.__toastTimer = setTimeout(() => {
     state.toastMessage = null;
     renderToast();
-  }, 3000);
+  }, 2800);
 }
 
 function renderToast() {
@@ -544,10 +542,6 @@ function escapeAttr(str) {
   return escapeHtml(str).replace(/'/g, "&#39;");
 }
 
-/**
- * Ensures any tamildhool hotlink-protected thumbnail is routed through /api/image
- * and empty thumbnails receive a verified show poster.
- */
 function resolveSafeImageUrl(rawUrl, showOrMovieTitle = "Rasagulla HD") {
   const meta = SHOW_METADATA[showOrMovieTitle];
   const fallbackPoster = meta ? meta.poster : buildSvgPosterDataUri(showOrMovieTitle, "1080P HD");
@@ -652,6 +646,50 @@ async function fetchLiveCatalog(silent = false) {
 }
 
 // ============================================================================
+// TV FOCUS APPLY & SYNC HELPER
+// Explicitly sets both DOM .focus() AND .tv-focused class so every TV browser
+// (JioSphere, TV Bro, Android TV WebView, Tizen, WebOS, Silk) shows the ring.
+// ============================================================================
+function applyTvFocus(el, shouldScroll = false) {
+  if (!el) return;
+  document.querySelectorAll(".tv-focused").forEach((node) => {
+    if (node !== el) node.classList.remove("tv-focused");
+  });
+  el.classList.add("tv-focused");
+  try {
+    el.focus({ preventScroll: !shouldScroll });
+  } catch (_) {}
+
+  const focusId = el.getAttribute("data-focus-id");
+  const rowId = el.getAttribute("data-focus-row");
+  if (focusId && rowId) {
+    state.rowFocusMemory[rowId] = focusId;
+    if (rowId !== "left-rail" && !rowId.startsWith("player-") && !rowId.startsWith("shelf-") && !rowId.startsWith("search-")) {
+      state.lastMainStageFocusId = focusId;
+    }
+  }
+
+  if (shouldScroll) {
+    // Smoothly center inside any horizontal scroll rail
+    const rail = el.closest(".horizontal-rail, .show-pills-bar, .player-scroll-strip");
+    if (rail) {
+      const elRect = el.getBoundingClientRect();
+      const railRect = rail.getBoundingClientRect();
+      const offset = elRect.left - railRect.left - railRect.width / 2 + elRect.width / 2;
+      rail.scrollBy({ left: offset, behavior: "smooth" });
+    }
+    el.scrollIntoView({ block: "nearest", inline: "nearest", behavior: "smooth" });
+  }
+}
+
+window.__scrollRail = function (railDomId, dir) {
+  const rail = document.getElementById(railDomId);
+  if (!rail) return;
+  const step = Math.max(480, Math.floor(rail.clientWidth * 0.75));
+  rail.scrollBy({ left: dir * step, behavior: "smooth" });
+};
+
+// ============================================================================
 // MAIN RENDER ENGINE
 // ============================================================================
 
@@ -659,7 +697,16 @@ function renderApp() {
   const root = document.getElementById("app");
   if (!root) return;
 
-  const activeFocusId = document.activeElement?.getAttribute("data-focus-id");
+  const activeFocusId =
+    document.activeElement?.getAttribute("data-focus-id") ||
+    document.querySelector(".tv-focused")?.getAttribute("data-focus-id") ||
+    state.lastMainStageFocusId;
+
+  // Keep video element alive across HUD updates when player is open
+  if (state.player.open && document.getElementById("rasagulla-player-modal")) {
+    updatePlayerHudInPlace();
+    return;
+  }
 
   root.innerHTML = `
     <div class="app-shell">
@@ -680,16 +727,25 @@ function renderApp() {
 
   if (activeFocusId) {
     const target = document.querySelector(`[data-focus-id="${CSS.escape(activeFocusId)}"]`);
-    if (target) target.focus({ preventScroll: true });
+    if (target) {
+      applyTvFocus(target, false);
+      return;
+    }
+  }
+  const defaultTarget =
+    document.querySelector('[data-focus-id="hero-primary-btn"]') ||
+    document.querySelector("[data-focusable]");
+  if (defaultTarget) {
+    applyTvFocus(defaultTarget, false);
   }
 }
 
 function renderLeftRail() {
   const navItems = [
-    { id: "home", label: "Home Hub", icon: ICONS.home },
-    { id: "shows", label: "TV Shows", icon: ICONS.tv },
-    { id: "movies", label: "Movies (1080p)", icon: ICONS.film },
-    { id: "live", label: "24/7 Live TV", icon: ICONS.live },
+    { id: "home", label: "Home", icon: ICONS.home },
+    { id: "shows", label: "Shows", icon: ICONS.tv },
+    { id: "movies", label: "Movies", icon: ICONS.film },
+    { id: "live", label: "Live TV", icon: ICONS.live },
     {
       id: "mylist",
       label: "My List",
@@ -700,7 +756,14 @@ function renderLeftRail() {
 
   return `
     <aside class="tv-left-rail" aria-label="Main Navigation">
-      <div class="brand-header" tabindex="0" data-focusable data-focus-id="rail-brand" onclick="window.__switchTab('home')">
+      <div
+        class="brand-header"
+        tabindex="0"
+        data-focusable
+        data-focus-row="left-rail"
+        data-focus-id="rail-brand"
+        onclick="window.__switchTab('home')"
+      >
         <div class="brand-emblem">
           <img
             src="/assets/cutouts/img_rasagulla_icon.png"
@@ -710,7 +773,7 @@ function renderLeftRail() {
         </div>
         <div>
           <div class="brand-title">Rasagulla</div>
-          <div class="brand-subtitle">Cinema &amp; Live TV</div>
+          <div class="brand-subtitle">TV &amp; Web</div>
         </div>
       </div>
 
@@ -721,6 +784,7 @@ function renderLeftRail() {
           <button
             class="rail-nav-btn ${state.activeTab === item.id ? "active" : ""}"
             data-focusable
+            data-focus-row="left-rail"
             data-focus-id="rail-nav-${item.id}"
             onclick="window.__switchTab('${item.id}')"
           >
@@ -734,14 +798,21 @@ function renderLeftRail() {
       </nav>
 
       <div class="rail-footer-hint">
-        <div style="font-weight:800; color:#fff; margin-bottom:4px;">Smart TV &amp; Web Ready</div>
-        Use <b>Arrow Keys / D-Pad</b> to navigate, <b>Enter</b> to select, and <b>Esc / Back</b> to return.
+        D-Pad / OK<br/>&amp; Pointer
       </div>
     </aside>
   `;
 }
 
 function renderSleekTopBar() {
+  const topTabs = [
+    { id: "home", label: "Home", icon: ICONS.home },
+    { id: "shows", label: "TV Shows", icon: ICONS.tv },
+    { id: "movies", label: "Movies (1080p)", icon: ICONS.film },
+    { id: "live", label: "24/7 Live", icon: ICONS.live },
+    { id: "mylist", label: "My List", icon: ICONS.bookmark },
+  ];
+
   return `
     <header class="sleek-top-bar">
       <div class="mobile-brand" onclick="window.__switchTab('home')">
@@ -758,12 +829,32 @@ function renderSleekTopBar() {
         </div>
       </div>
 
+      <div class="tv-top-nav-pills" role=" navigation" aria-label="Quick Category Tabs">
+        ${topTabs
+          .map(
+            (t) => `
+          <button
+            class="tv-top-tab-btn ${state.activeTab === t.id ? "active" : ""}"
+            data-focusable
+            data-focus-row="row-top-bar"
+            data-focus-id="top-tab-${t.id}"
+            onclick="window.__switchTab('${t.id}')"
+          >
+            ${t.icon}
+            <span>${t.label}</span>
+          </button>
+        `
+          )
+          .join("")}
+      </div>
+
       <div class="top-bar-actions">
         <button
           class="icon-glass-btn"
           title="Search Shows & Movies"
           aria-label="Search Shows & Movies"
           data-focusable
+          data-focus-row="row-top-bar"
           data-focus-id="top-search-btn"
           onclick="window.__openSearch()"
         >
@@ -775,6 +866,7 @@ function renderSleekTopBar() {
           title="Refresh Live Feeds"
           aria-label="Refresh Live Feeds"
           data-focusable
+          data-focus-row="row-top-bar"
           data-focus-id="top-refresh-btn"
           onclick="window.__refreshFeeds()"
         >
@@ -784,6 +876,7 @@ function renderSleekTopBar() {
         <button
           class="pill-action-btn live-pill"
           data-focusable
+          data-focus-row="row-top-bar"
           data-focus-id="top-live-btn"
           onclick="window.__playLive24x7()"
         >
@@ -797,7 +890,13 @@ function renderSleekTopBar() {
 
 function renderClusterPortalHero() {
   const focusedChar = HERO_CHARACTERS[state.heroIndex] || HERO_CHARACTERS[3];
-  const hudLeftPct = Math.min(62, Math.max(8, Math.round(focusedChar.targetFractionX * 100 - 14)));
+  const hudLeftPct = Math.min(60, Math.max(6, Math.round(focusedChar.targetFractionX * 100 - 12)));
+  const primaryLabel =
+    focusedChar.targetTab === "movies"
+      ? "Browse Tamil Movies"
+      : focusedChar.targetTab === "shows"
+      ? "Open All Shows Hub"
+      : `Watch ${focusedChar.title}`;
 
   return `
     <section class="cluster-portal-stage" aria-label="Featured Shows & Characters">
@@ -811,11 +910,11 @@ function renderClusterPortalHero() {
       <div class="cluster-top-badge">
         <span class="cluster-top-pill">
           ${ICONS.sparkle}
-          <span>Interactive TV Character Stage</span>
+          <span>D-Pad Left / Right or Click Character to Switch Show</span>
         </span>
         <div class="cluster-dots">
           ${HERO_CHARACTERS.map(
-            (c, idx) =>
+            (_c, idx) =>
               `<span class="cluster-dot ${idx === state.heroIndex ? "active" : ""}"></span>`
           ).join("")}
         </div>
@@ -840,7 +939,8 @@ function renderClusterPortalHero() {
             <div
               class="cluster-cutout-node ${isFocused ? "focused" : "inactive"}"
               style="left: ${(char.targetFractionX * 100).toFixed(1)}%; z-index: ${zIdx};"
-              onclick="window.__selectHeroChar(${idx}, true)"
+              onclick="window.__selectHeroChar(${idx}, false)"
+              ondblclick="window.__selectHeroChar(${idx}, true)"
               title="${escapeAttr(char.title)}"
             >
               <img
@@ -861,7 +961,9 @@ function renderClusterPortalHero() {
           class="cluster-arrow-btn"
           aria-label="Previous Character"
           data-focusable
+          data-focus-row="row-hero"
           data-focus-id="hero-prev-btn"
+          data-hero-stage="true"
           onclick="window.__cycleHero(-1)"
         >
           ${ICONS.chevronLeft}
@@ -871,12 +973,25 @@ function renderClusterPortalHero() {
           <button
             class="cluster-explore-btn"
             data-focusable
+            data-focus-row="row-hero"
             data-focus-id="hero-primary-btn"
+            data-hero-stage="true"
+            onclick="window.__playHeroFeatured()"
+          >
+            ${ICONS.play}
+            <span>${escapeHtml(primaryLabel)}</span>
+          </button>
+
+          <button
+            class="cluster-secondary-btn"
+            data-focusable
+            data-focus-row="row-hero"
+            data-focus-id="hero-secondary-btn"
             data-hero-stage="true"
             onclick="window.__activateHeroChar()"
           >
-            ${ICONS.play}
-            <span>Explore ${escapeHtml(focusedChar.title)}</span>
+            ${ICONS.tv}
+            <span>Episodes Shelf</span>
           </button>
         </div>
 
@@ -884,7 +999,9 @@ function renderClusterPortalHero() {
           class="cluster-arrow-btn"
           aria-label="Next Character"
           data-focusable
+          data-focus-row="row-hero"
           data-focus-id="hero-next-btn"
+          data-hero-stage="true"
           onclick="window.__cycleHero(1)"
         >
           ${ICONS.chevronRight}
@@ -915,6 +1032,7 @@ function renderQuickShelfModal() {
             <button
               class="section-link-btn"
               data-focusable
+              data-focus-row="shelf-header"
               data-focus-id="shelf-view-all-btn"
               onclick="window.__openShowHub('${escapeAttr(showName)}')"
             >
@@ -925,6 +1043,7 @@ function renderQuickShelfModal() {
               class="icon-glass-btn"
               aria-label="Close Shelf"
               data-focusable
+              data-focus-row="shelf-header"
               data-focus-id="shelf-close-btn"
               onclick="window.__closeShelfModal()"
             >
@@ -941,8 +1060,9 @@ function renderQuickShelfModal() {
               <button
                 class="shelf-ep-item"
                 data-focusable
+                data-focus-row="shelf-row-${idx}"
                 data-focus-id="shelf-ep-${idx}"
-                onclick="window.__playEpisodeById('${escapeAttr(ep.id)}')"
+                onclick="window.__playEpisodeById('${escapeAttr(ep.id)}', 'shelf-ep-${idx}')"
               >
                 <div class="shelf-ep-thumb">
                   <img
@@ -953,14 +1073,14 @@ function renderQuickShelfModal() {
                   />
                 </div>
                 <div style="flex:1; min-width:0;">
-                  <div style="font-size:13.5px; font-weight:800; color:#fff; line-height:1.35; display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden;">
+                  <div style="font-size:14px; font-weight:800; color:#fff; line-height:1.35; display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden;">
                     ${escapeHtml(ep.title)}
                   </div>
                   <div style="font-size:11.5px; color:var(--text-secondary); margin-top:4px;">
                     ${escapeHtml(ep.date)} • 1080p HD
                   </div>
                 </div>
-                <div class="play-circle-icon" style="width:36px; height:36px; flex-shrink:0;">
+                <div class="play-circle-icon" style="width:38px; height:38px; flex-shrink:0;">
                   ${ICONS.play}
                 </div>
               </button>
@@ -999,6 +1119,7 @@ function renderHomeHubView() {
             <button
               class="show-pill-btn ${isActive ? "active" : ""}"
               data-focusable
+              data-focus-row="row-show-pills"
               data-focus-id="show-pill-${idx}"
               onclick="window.__selectShowPill('${escapeAttr(key)}')"
             >
@@ -1019,9 +1140,17 @@ function renderHomeHubView() {
             <h2 class="section-title">${ICONS.play}<span>Continue Watching</span></h2>
             <span class="section-badge">Resume Playback</span>
           </div>
+          <div class="section-header-actions">
+            <button class="rail-scroll-btn" title="Scroll Left" onclick="window.__scrollRail('rail-continue', -1)">${ICONS.chevronLeft}</button>
+            <button class="rail-scroll-btn" title="Scroll Right" onclick="window.__scrollRail('rail-continue', 1)">${ICONS.chevronRight}</button>
+          </div>
         </div>
-        <div class="horizontal-rail">
-          ${historyItems.map((item, idx) => renderEpisodeCard(item, `cont-${idx}`, item.progressRatio)).join("")}
+        <div class="horizontal-rail" id="rail-continue">
+          ${historyItems
+            .map((item, idx) =>
+              renderEpisodeCard(item, `cont-${idx}`, "row-continue", item.progressRatio)
+            )
+            .join("")}
         </div>
       </section>
     `
@@ -1038,20 +1167,25 @@ function renderHomeHubView() {
           </h2>
           <span class="section-badge">${escapeHtml(SHOW_METADATA[state.selectedShow]?.badge || "1080p HD")}</span>
         </div>
-        <button
-          class="section-link-btn"
-          data-focusable
-          data-focus-id="home-open-show-hub"
-          onclick="window.__openShowHub('${escapeAttr(state.selectedShow)}')"
-        >
-          <span>All Episodes</span>
-          ${ICONS.chevronRight}
-        </button>
+        <div class="section-header-actions">
+          <button class="rail-scroll-btn" title="Scroll Left" onclick="window.__scrollRail('rail-featured-show', -1)">${ICONS.chevronLeft}</button>
+          <button class="rail-scroll-btn" title="Scroll Right" onclick="window.__scrollRail('rail-featured-show', 1)">${ICONS.chevronRight}</button>
+          <button
+            class="section-link-btn"
+            data-focusable
+            data-focus-row="row-featured-show"
+            data-focus-id="home-open-show-hub"
+            onclick="window.__openShowHub('${escapeAttr(state.selectedShow)}')"
+          >
+            <span>All Seasons</span>
+            ${ICONS.chevronRight}
+          </button>
+        </div>
       </div>
-      <div class="horizontal-rail">
+      <div class="horizontal-rail" id="rail-featured-show">
         ${selectedShowEps
           .slice(0, 14)
-          .map((ep, idx) => renderEpisodeCard(ep, `sel-ep-${idx}`))
+          .map((ep, idx) => renderEpisodeCard(ep, `sel-ep-${idx}`, "row-featured-show"))
           .join("")}
       </div>
     </section>
@@ -1060,9 +1194,11 @@ function renderHomeHubView() {
     ${showKeys
       .filter((k) => k !== state.selectedShow)
       .map((showKey, sIdx) => {
-        const eps = state.episodes.filter((e) => e.showName === showKey).slice(0, 10);
+        const eps = state.episodes.filter((e) => e.showName === showKey).slice(0, 12);
         if (eps.length === 0) return "";
         const meta = SHOW_METADATA[showKey];
+        const railDomId = `rail-show-${sIdx}`;
+        const rowName = `row-show-${sIdx}`;
         return `
           <section>
             <div class="section-header">
@@ -1070,18 +1206,23 @@ function renderHomeHubView() {
                 <h2 class="section-title">${ICONS.tv}<span>${escapeHtml(showKey)}</span></h2>
                 <span class="section-badge">${escapeHtml(meta.badge)}</span>
               </div>
-              <button
-                class="section-link-btn"
-                data-focusable
-                data-focus-id="home-show-more-${sIdx}"
-                onclick="window.__openShowHub('${escapeAttr(showKey)}')"
-              >
-                <span>See All</span>
-                ${ICONS.chevronRight}
-              </button>
+              <div class="section-header-actions">
+                <button class="rail-scroll-btn" title="Scroll Left" onclick="window.__scrollRail('${railDomId}', -1)">${ICONS.chevronLeft}</button>
+                <button class="rail-scroll-btn" title="Scroll Right" onclick="window.__scrollRail('${railDomId}', 1)">${ICONS.chevronRight}</button>
+                <button
+                  class="section-link-btn"
+                  data-focusable
+                  data-focus-row="${rowName}"
+                  data-focus-id="home-show-more-${sIdx}"
+                  onclick="window.__openShowHub('${escapeAttr(showKey)}')"
+                >
+                  <span>All Seasons</span>
+                  ${ICONS.chevronRight}
+                </button>
+              </div>
             </div>
-            <div class="horizontal-rail">
-              ${eps.map((ep, idx) => renderEpisodeCard(ep, `rail-${sIdx}-${idx}`)).join("")}
+            <div class="horizontal-rail" id="${railDomId}">
+              ${eps.map((ep, idx) => renderEpisodeCard(ep, `rail-${sIdx}-${idx}`, rowName)).join("")}
             </div>
           </section>
         `;
@@ -1098,6 +1239,7 @@ function renderHomeHubView() {
         <button
           class="section-link-btn"
           data-focusable
+          data-focus-row="row-home-movies-0"
           data-focus-id="home-movies-all"
           onclick="window.__switchTab('movies')"
         >
@@ -1108,7 +1250,9 @@ function renderHomeHubView() {
       <div class="movies-grid-4col">
         ${state.movies
           .slice(0, 8)
-          .map((mov, idx) => renderMovieCard(mov, `home-mov-${idx}`))
+          .map((mov, idx) =>
+            renderMovieCard(mov, `home-mov-${idx}`, `row-home-movies-${Math.floor(idx / 4)}`)
+          )
           .join("")}
       </div>
     </section>
@@ -1144,6 +1288,7 @@ function renderShowsHubView() {
         <button
           class="show-pill-btn ${state.selectedShow === key ? "active" : ""}"
           data-focusable
+          data-focus-row="row-shows-pills"
           data-focus-id="shows-tab-pill-${idx}"
           onclick="window.__selectShowPill('${escapeAttr(key)}')"
         >
@@ -1165,6 +1310,7 @@ function renderShowsHubView() {
           <button
             class="pill-action-btn ${activeSeasonObj && activeSeasonObj.id === sObj.id ? "live-pill" : ""}"
             data-focusable
+            data-focus-row="row-season-pills"
             data-focus-id="season-pill-${escapeAttr(sObj.id)}"
             onclick="window.__selectSeason('${escapeAttr(sObj.id)}')"
           >
@@ -1179,7 +1325,17 @@ function renderShowsHubView() {
     }
 
     <div class="movies-grid-4col">
-      ${filteredEps.map((ep, idx) => renderEpisodeCard(ep, `hub-ep-${idx}`, undefined, true)).join("")}
+      ${filteredEps
+        .map((ep, idx) =>
+          renderEpisodeCard(
+            ep,
+            `hub-ep-${idx}`,
+            `row-hub-grid-${Math.floor(idx / 4)}`,
+            undefined,
+            true
+          )
+        )
+        .join("")}
     </div>
   `;
 }
@@ -1193,7 +1349,11 @@ function renderMoviesGridView() {
       </div>
     </div>
     <div class="movies-grid-4col">
-      ${state.movies.map((mov, idx) => renderMovieCard(mov, `grid-mov-${idx}`)).join("")}
+      ${state.movies
+        .map((mov, idx) =>
+          renderMovieCard(mov, `grid-mov-${idx}`, `row-movies-grid-${Math.floor(idx / 4)}`)
+        )
+        .join("")}
     </div>
   `;
 }
@@ -1208,7 +1368,17 @@ function renderLiveStreamHubView() {
       </div>
     </div>
     <div class="movies-grid-4col">
-      ${liveEps.map((ep, idx) => renderEpisodeCard(ep, `live-ep-${idx}`, undefined, true)).join("")}
+      ${liveEps
+        .map((ep, idx) =>
+          renderEpisodeCard(
+            ep,
+            `live-ep-${idx}`,
+            `row-live-grid-${Math.floor(idx / 4)}`,
+            undefined,
+            true
+          )
+        )
+        .join("")}
     </div>
   `;
 }
@@ -1228,10 +1398,20 @@ function renderMyListView() {
       ${
         state.myList.length === 0
           ? `<div style="padding:36px; border-radius:16px; background:var(--bg-card); border:1px solid var(--border-subtle); color:var(--text-secondary); text-align:center;">
-              No saved episodes or movies yet. Tap the bookmark button inside the player to save titles here.
+              No saved episodes or movies yet. Select the bookmark button inside the player to save titles here.
             </div>`
           : `<div class="movies-grid-4col">
-              ${state.myList.map((ep, idx) => renderEpisodeCard(ep, `mylist-${idx}`, undefined, true)).join("")}
+              ${state.myList
+                .map((ep, idx) =>
+                  renderEpisodeCard(
+                    ep,
+                    `mylist-${idx}`,
+                    `row-mylist-grid-${Math.floor(idx / 4)}`,
+                    undefined,
+                    true
+                  )
+                )
+                .join("")}
             </div>`
       }
     </section>
@@ -1244,12 +1424,28 @@ function renderMyListView() {
           <div class="section-title-group">
             <h2 class="section-title">${ICONS.play}<span>Watch History</span></h2>
           </div>
-          <button class="section-link-btn" data-focusable onclick="window.__clearHistory()">
+          <button
+            class="section-link-btn"
+            data-focusable
+            data-focus-row="row-hist-header"
+            data-focus-id="clear-hist-btn"
+            onclick="window.__clearHistory()"
+          >
             <span>Clear History</span>
           </button>
         </div>
         <div class="movies-grid-4col">
-          ${historyItems.map((item, idx) => renderEpisodeCard(item, `hist-${idx}`, item.progressRatio, true)).join("")}
+          ${historyItems
+            .map((item, idx) =>
+              renderEpisodeCard(
+                item,
+                `hist-${idx}`,
+                `row-hist-grid-${Math.floor(idx / 4)}`,
+                item.progressRatio,
+                true
+              )
+            )
+            .join("")}
         </div>
       </section>
     `
@@ -1258,7 +1454,7 @@ function renderMyListView() {
   `;
 }
 
-function renderEpisodeCard(ep, focusId, progressRatio, fluidWidth = false) {
+function renderEpisodeCard(ep, focusId, rowName = "row-featured-show", progressRatio, fluidWidth = false) {
   const historyEntry = state.watchHistory[ep.id];
   const ratio =
     typeof progressRatio === "number"
@@ -1274,8 +1470,9 @@ function renderEpisodeCard(ep, focusId, progressRatio, fluidWidth = false) {
       class="media-card"
       style="${fluidWidth ? "width:100%;" : ""}"
       data-focusable
-      data-focus-id="${focusId}"
-      onclick="window.__playEpisodeById('${escapeAttr(ep.id)}')"
+      data-focus-row="${escapeAttr(rowName)}"
+      data-focus-id="${escapeAttr(focusId)}"
+      onclick="window.__playEpisodeById('${escapeAttr(ep.id)}', '${escapeAttr(focusId)}')"
     >
       <div class="media-thumb-wrap">
         <img
@@ -1303,21 +1500,22 @@ function renderEpisodeCard(ep, focusId, progressRatio, fluidWidth = false) {
         <div class="media-card-title">${escapeHtml(ep.title)}</div>
         <div class="media-card-meta">
           <span>${escapeHtml(ep.date || "Latest Broadcast")}</span>
-          <span style="color:var(--accent-rose); font-weight:800;">Watch</span>
+          <span style="color:var(--accent-rose); font-weight:800;">Play HD</span>
         </div>
       </div>
     </button>
   `;
 }
 
-function renderMovieCard(mov, focusId) {
+function renderMovieCard(mov, focusId, rowName = "row-movies-grid-0") {
   const safePoster = resolveSafeImageUrl(mov.posterUrl, mov.title);
   return `
     <button
       class="movie-poster-card"
       data-focusable
-      data-focus-id="${focusId}"
-      onclick="window.__playMovieById('${escapeAttr(mov.id)}')"
+      data-focus-row="${escapeAttr(rowName)}"
+      data-focus-id="${escapeAttr(focusId)}"
+      onclick="window.__playMovieById('${escapeAttr(mov.id)}', '${escapeAttr(focusId)}')"
     >
       <div class="movie-poster-wrap">
         <img
@@ -1390,7 +1588,13 @@ function renderSearchModal() {
       <div class="modal-card" style="max-width:740px; max-height:86dvh; overflow:hidden;">
         <div style="display:flex; align-items:center; justify-content:space-between; gap:12px;">
           <div style="font-size:18px; font-weight:900;">Search Shows, Episodes &amp; Movies</div>
-          <button class="icon-glass-btn" data-focusable onclick="window.__closeSearch()">
+          <button
+            class="icon-glass-btn"
+            data-focusable
+            data-focus-row="search-top"
+            data-focus-id="search-close-btn"
+            onclick="window.__closeSearch()"
+          >
             ${ICONS.close}
           </button>
         </div>
@@ -1398,10 +1602,10 @@ function renderSearchModal() {
         <input
           id="rasagulla-search-input"
           type="text"
-          placeholder="Search Bigg Boss, MasterChef, Cooku with Comali, Retro..."
+          placeholder="Search Bigg Boss, MasterChef, Cooku with Comali, Super Singer..."
           value="${escapeAttr(state.searchQuery)}"
           oninput="window.__updateSearchQuery(this.value)"
-          style="width:100%; padding:13px 16px; border-radius:12px; border:1px solid var(--border-bright); background:#070a12; color:#fff; font-size:14.5px; outline:none;"
+          style="width:100%; padding:13px 16px; border-radius:12px; border:1.5px solid var(--border-bright); background:#070a12; color:#fff; font-size:14.5px; outline:none;"
         />
 
         <div style="overflow-y:auto; display:flex; flex-direction:column; gap:14px; padding-right:4px;">
@@ -1418,6 +1622,7 @@ function renderSearchModal() {
                   <button
                     class="shelf-ep-item"
                     data-focusable
+                    data-focus-row="search-ep-row-${idx}"
                     data-focus-id="search-ep-${idx}"
                     onclick="window.__closeSearch(); window.__playEpisodeById('${escapeAttr(ep.id)}')"
                   >
@@ -1425,7 +1630,7 @@ function renderSearchModal() {
                       <img src="${escapeAttr(safeThumb)}" alt="" onerror="window.__onImgErr(this, '${escapeAttr(ep.showName)}', '1080P')" />
                     </div>
                     <div style="flex:1; min-width:0;">
-                      <div style="font-size:13px; font-weight:800; color:#fff;">${escapeHtml(ep.title)}</div>
+                      <div style="font-size:13.5px; font-weight:800; color:#fff;">${escapeHtml(ep.title)}</div>
                       <div style="font-size:11px; color:var(--text-secondary); margin-top:2px;">${escapeHtml(ep.showName)} • ${escapeHtml(ep.date)}</div>
                     </div>
                   </button>
@@ -1451,6 +1656,7 @@ function renderSearchModal() {
                     <button
                       class="shelf-ep-item"
                       data-focusable
+                      data-focus-row="search-mov-row-${idx}"
                       data-focus-id="search-mov-${idx}"
                       onclick="window.__closeSearch(); window.__playMovieById('${escapeAttr(mov.id)}')"
                     >
@@ -1458,7 +1664,7 @@ function renderSearchModal() {
                         <img src="${escapeAttr(safePoster)}" alt="" onerror="window.__onImgErr(this, '${escapeAttr(mov.title)}', '1080P')" />
                       </div>
                       <div style="flex:1; min-width:0;">
-                        <div style="font-size:13px; font-weight:800; color:#fff;">${escapeHtml(mov.title)}</div>
+                        <div style="font-size:13.5px; font-weight:800; color:#fff;">${escapeHtml(mov.title)}</div>
                         <div style="font-size:11px; color:var(--text-secondary); margin-top:2px;">${escapeHtml(mov.languageAndYear)} • ${escapeHtml(mov.qualityBadge)}</div>
                       </div>
                     </button>
@@ -1478,9 +1684,11 @@ function renderSearchModal() {
 
 // ============================================================================
 // NETFLIX / APPLE TV+ / PRIME VIDEO GRADE FULLSCREEN VIDEO PLAYER
+// Keeps <video id="rasagulla-video-el"> persistently mounted so user-gesture
+// autoplay works synchronously on TV & mobile browsers.
 // ============================================================================
 
-function renderPlayerModal() {
+function renderPlayerHudMarkup() {
   const p = state.player;
   const ep = p.episode || {};
   const activeSource = p.sources[p.activeSourceIndex] || null;
@@ -1494,318 +1702,328 @@ function renderPlayerModal() {
   );
 
   return `
+    <!-- Top Bar -->
+    <div class="player-top-bar">
+      <div class="player-top-left">
+        <button
+          class="player-icon-btn"
+          title="Back to Catalog (Esc / Back)"
+          aria-label="Back"
+          data-focusable
+          data-focus-row="player-row-top"
+          data-focus-id="player-back-btn"
+          onclick="window.__confirmClosePlayer()"
+        >
+          ${ICONS.back}
+        </button>
+        <div class="player-title-meta">
+          <div class="player-title-text">${escapeHtml(ep.title || "Rasagulla Stream")}</div>
+          <div class="player-subtitle-text" id="rasagulla-player-subtitle">
+            ${escapeHtml(activeSource ? activeSource.label : "Connecting 1080p Mirror...")} • ${escapeHtml(p.selectedQuality)}
+          </div>
+        </div>
+      </div>
+
+      <div class="player-top-right">
+        <button
+          class="player-icon-btn"
+          title="${saved ? "Saved in My List" : "Add to My List"}"
+          aria-label="Toggle My List"
+          data-focusable
+          data-focus-row="player-row-top"
+          data-focus-id="player-bookmark-btn"
+          onclick="window.__toggleCurrentEpisodeMyList()"
+        >
+          ${saved ? ICONS.bookmarkFilled : ICONS.bookmark}
+        </button>
+
+        ${
+          !isIframe
+            ? `
+          <button
+            class="player-icon-btn"
+            title="Aspect Ratio Fit / Fill"
+            aria-label="Toggle Aspect Ratio"
+            data-focusable
+            data-focus-row="player-row-top"
+            data-focus-id="player-fit-btn"
+            onclick="window.__playerToggleFit()"
+          >
+            ${ICONS.fitScreen}
+          </button>
+        `
+            : ""
+        }
+
+        <button
+          class="player-icon-btn"
+          title="Fullscreen & Landscape Lock"
+          aria-label="Fullscreen"
+          data-focusable
+          data-focus-row="player-row-top"
+          data-focus-id="player-fullscreen-btn"
+          onclick="window.__playerToggleFullscreen()"
+        >
+          ${ICONS.fullscreen}
+        </button>
+      </div>
+    </div>
+
+    <!-- Center Transport Overlay -->
+    ${
+      !isIframe && !p.loadingStream
+        ? `
+      <div class="player-center-transport">
+        ${
+          !isLive
+            ? `
+          <button
+            class="transport-circle-btn"
+            aria-label="Rewind 10 seconds"
+            data-focusable
+            data-focus-row="player-row-center"
+            data-focus-id="player-rw-btn"
+            onclick="window.__playerSeekRelative(-10)"
+          >
+            ${ICONS.rewind10}
+          </button>
+        `
+            : ""
+        }
+
+        <button
+          class="transport-circle-btn main-play-pause"
+          id="rasagulla-play-pause-btn"
+          aria-label="Play or Pause"
+          data-focusable
+          data-focus-row="player-row-center"
+          data-focus-id="player-play-btn"
+          onclick="window.__playerTogglePlay()"
+        >
+          ${p.isPlaying ? ICONS.pause : ICONS.play}
+        </button>
+
+        ${
+          !isLive
+            ? `
+          <button
+            class="transport-circle-btn"
+            aria-label="Forward 10 seconds"
+            data-focusable
+            data-focus-row="player-row-center"
+            data-focus-id="player-ff-btn"
+            onclick="window.__playerSeekRelative(10)"
+          >
+            ${ICONS.forward10}
+          </button>
+        `
+            : ""
+        }
+      </div>
+    `
+        : `<div></div>`
+    }
+
+    <!-- Bottom Controls Dock -->
+    <div class="player-bottom-controls">
+      ${
+        !isIframe
+          ? isLive
+            ? `
+          <div class="live-broadcast-bar">
+            <div style="display:flex; align-items:center; gap:8px;">
+              <span class="live-dot"></span>
+              <span style="font-size:12px; font-weight:900; letter-spacing:0.6px; color:#fff;">
+                LIVE BROADCAST • 1080P 60FPS REAL-TIME STREAM
+              </span>
+            </div>
+            <button
+              class="player-chip-btn crimson-chip"
+              style="height:28px; padding:0 10px; font-size:11px;"
+              data-focusable
+              data-focus-row="player-row-seek"
+              data-focus-id="player-sync-live-btn"
+              onclick="window.__syncLiveEdge()"
+            >
+              <span>Sync Live Edge</span>
+            </button>
+          </div>
+        `
+            : `
+          <div class="player-seek-row">
+            <input
+              id="rasagulla-seek-slider"
+              class="player-seek-slider"
+              type="range"
+              min="0"
+              max="${Math.max(1, Math.floor(p.duration || 100))}"
+              value="${Math.floor(p.currentTime || 0)}"
+              data-focusable
+              data-focus-row="player-row-seek"
+              data-focus-id="player-seek-bar"
+              oninput="window.__playerScrub(this.value)"
+            />
+            <span class="player-time-badge" id="rasagulla-time-badge">
+              ${formatTime(p.currentTime)} / ${formatTime(p.duration)}
+            </span>
+          </div>
+        `
+          : ""
+      }
+
+      <!-- Single-Line Horizontal Scrollable Strip for Mirrors, Quality & Proxy -->
+      <div class="player-pills-dock">
+        <div class="player-scroll-strip" role="toolbar" aria-label="Stream Mirrors and Quality">
+          ${p.sources
+            .map(
+              (src, idx) => `
+            <button
+              class="player-chip-btn ${idx === p.activeSourceIndex ? "active-chip" : ""}"
+              data-focusable
+              data-focus-row="player-row-bottom"
+              data-focus-id="player-mirror-${idx}"
+              onclick="window.__selectStreamMirror(${idx})"
+            >
+              ${ICONS.server}
+              <span>${escapeHtml(src.label)}</span>
+            </button>
+          `
+            )
+            .join("")}
+
+          ${
+            !isIframe
+              ? ["1080p", "720p", "Auto"]
+                  .map(
+                    (q) => `
+              <button
+                class="player-chip-btn ${p.selectedQuality === q ? "crimson-chip" : ""}"
+                data-focusable
+                data-focus-row="player-row-bottom"
+                data-focus-id="player-q-${q}"
+                onclick="window.__selectQuality('${q}')"
+              >
+                <span>${q === "1080p" ? "1080p HD" : q}</span>
+              </button>
+            `
+                  )
+                  .join("")
+              : ""
+          }
+
+          ${
+            !isIframe
+              ? `
+            <button
+              class="player-chip-btn ${p.useProxy ? "active-chip" : ""}"
+              data-focusable
+              data-focus-row="player-row-bottom"
+              data-focus-id="player-proxy-btn"
+              onclick="window.__toggleProxyMode()"
+            >
+              ${ICONS.shield}
+              <span>${p.useProxy ? "Proxy Boost: ON" : "Proxy Boost"}</span>
+            </button>
+          `
+              : ""
+          }
+        </div>
+      </div>
+    </div>
+  `;
+}
+
+function renderPlayerModal() {
+  const p = state.player;
+  return `
     <div class="player-modal" id="rasagulla-player-modal">
       <div
         class="player-video-stage ${p.fitCover ? "fit-cover" : ""}"
         id="rasagulla-video-stage"
         onclick="window.__onVideoStageTap(event)"
       >
-        ${
-          p.loadingStream
-            ? `
-          <div style="display:flex; flex-direction:column; align-items:center; gap:12px; z-index:5;">
-            <div style="width:46px; height:46px; border:3.5px solid rgba(255,255,255,0.18); border-top-color:var(--accent-rose); border-radius:50%; animation:spin 0.8s linear infinite;"></div>
-            <div style="font-size:14px; font-weight:800; color:#fff;">Connecting 1080p HD Stream...</div>
-          </div>
-          <style>@keyframes spin { to { transform: rotate(360deg); } }</style>
-        `
-            : p.error
-            ? `
-          <div style="max-width:440px; padding:24px; border-radius:18px; background:rgba(15,19,30,0.95); border:1px solid var(--border-bright); text-align:center; z-index:10;">
-            <div style="font-size:16px; font-weight:900; color:#fff; margin-bottom:6px;">Stream Mirror Busy</div>
-            <div style="font-size:12.5px; color:var(--text-secondary); margin-bottom:16px;">${escapeHtml(p.error)}</div>
-            <div style="display:flex; gap:10px; justify-content:center; flex-wrap:wrap;">
-              <button class="player-chip-btn crimson-chip" data-focusable onclick="window.__retryWithProxy()">
-                ${ICONS.shield}<span>Boost with Proxy</span>
-              </button>
-              <button class="player-chip-btn" data-focusable onclick="window.__switchNextMirror()">
-                ${ICONS.server}<span>Next Mirror</span>
-              </button>
-            </div>
-          </div>
-        `
-            : isIframe
-            ? `
-          <iframe
-            id="rasagulla-iframe-player"
-            src="${escapeAttr(activeSource.url)}"
-            allow="autoplay; fullscreen; encrypted-media; picture-in-picture"
-            allowfullscreen
-            referrerpolicy="no-referrer"
-          ></iframe>
-        `
-            : `
-          <video
-            id="rasagulla-video-el"
-            playsinline
-            webkit-playsinline
-            autoplay
-          ></video>
-        `
-        }
+        <video
+          id="rasagulla-video-el"
+          playsinline
+          webkit-playsinline
+          autoplay
+        ></video>
+        <div id="rasagulla-iframe-slot" style="display:none; position:absolute; inset:0; width:100%; height:100%;"></div>
+        <div id="rasagulla-stage-status" style="position:absolute; inset:0; display:flex; align-items:center; justify-content:center; pointer-events:none; z-index:8;">
+          ${renderPlayerStageStatusMarkup()}
+        </div>
       </div>
 
-      <!-- Sleek Netflix / Apple TV+ HUD Overlay -->
       <div class="player-hud-overlay ${p.hudVisible ? "" : "hud-hidden"}" id="rasagulla-player-hud">
-        <!-- Top Bar -->
-        <div class="player-top-bar">
-          <div class="player-top-left">
-            <button
-              class="player-icon-btn"
-              title="Back (Esc)"
-              aria-label="Back"
-              data-focusable
-              data-focus-id="player-back-btn"
-              onclick="window.__requestClosePlayer()"
-            >
-              ${ICONS.back}
-            </button>
-            <div class="player-title-meta">
-              <div class="player-title-text">${escapeHtml(ep.title || "Rasagulla Stream")}</div>
-              <div class="player-subtitle-text" id="rasagulla-player-subtitle">
-                ${escapeHtml(activeSource ? activeSource.label : "Resolving 1080p Mirror...")} • ${escapeHtml(p.selectedQuality)}
-              </div>
-            </div>
-          </div>
-
-          <div class="player-top-right">
-            <button
-              class="player-icon-btn"
-              title="${saved ? "Saved in My List" : "Add to My List"}"
-              aria-label="Toggle My List"
-              data-focusable
-              data-focus-id="player-bookmark-btn"
-              onclick="window.__toggleCurrentEpisodeMyList()"
-            >
-              ${saved ? ICONS.bookmarkFilled : ICONS.bookmark}
-            </button>
-
-            ${
-              !isIframe
-                ? `
-              <button
-                class="player-icon-btn"
-                title="Aspect Ratio Fit / Fill"
-                aria-label="Toggle Aspect Ratio"
-                data-focusable
-                data-focus-id="player-fit-btn"
-                onclick="window.__playerToggleFit()"
-              >
-                ${ICONS.fitScreen}
-              </button>
-            `
-                : ""
-            }
-
-            <button
-              class="player-icon-btn"
-              title="Fullscreen & Landscape Lock"
-              aria-label="Fullscreen"
-              data-focusable
-              data-focus-id="player-fullscreen-btn"
-              onclick="window.__playerToggleFullscreen()"
-            >
-              ${ICONS.fullscreen}
-            </button>
-          </div>
-        </div>
-
-        <!-- Center Transport Overlay (Only for native HLS/MP4 video) -->
-        ${
-          !isIframe && !p.loadingStream
-            ? `
-          <div class="player-center-transport">
-            ${
-              !isLive
-                ? `
-              <button
-                class="transport-circle-btn"
-                aria-label="Rewind 10 seconds"
-                data-focusable
-                data-focus-id="player-rw-btn"
-                onclick="window.__playerSeekRelative(-10)"
-              >
-                ${ICONS.rewind10}
-              </button>
-            `
-                : ""
-            }
-
-            <button
-              class="transport-circle-btn main-play-pause"
-              id="rasagulla-play-pause-btn"
-              aria-label="Play or Pause"
-              data-focusable
-              data-focus-id="player-play-btn"
-              onclick="window.__playerTogglePlay()"
-            >
-              ${p.isPlaying ? ICONS.pause : ICONS.play}
-            </button>
-
-            ${
-              !isLive
-                ? `
-              <button
-                class="transport-circle-btn"
-                aria-label="Forward 10 seconds"
-                data-focusable
-                data-focus-id="player-ff-btn"
-                onclick="window.__playerSeekRelative(10)"
-              >
-                ${ICONS.forward10}
-              </button>
-            `
-                : ""
-            }
-          </div>
-        `
-            : `<div></div>`
-        }
-
-        <!-- Bottom Controls Dock -->
-        <div class="player-bottom-controls">
-          ${
-            !isIframe
-              ? isLive
-                ? `
-              <div class="live-broadcast-bar">
-                <div style="display:flex; align-items:center; gap:8px;">
-                  <span class="live-dot"></span>
-                  <span style="font-size:12px; font-weight:900; letter-spacing:0.6px; color:#fff;">
-                    LIVE BROADCAST • 1080P 60FPS REAL-TIME STREAM
-                  </span>
-                </div>
-                <button
-                  class="player-chip-btn crimson-chip"
-                  style="height:28px; padding:0 10px; font-size:11px;"
-                  data-focusable
-                  data-focus-id="player-sync-live-btn"
-                  onclick="window.__syncLiveEdge()"
-                >
-                  <span>Sync Live Edge</span>
-                </button>
-              </div>
-            `
-                : `
-              <div class="player-seek-row">
-                <input
-                  id="rasagulla-seek-slider"
-                  class="player-seek-slider"
-                  type="range"
-                  min="0"
-                  max="${Math.max(1, Math.floor(p.duration || 100))}"
-                  value="${Math.floor(p.currentTime || 0)}"
-                  data-focusable
-                  data-focus-id="player-seek-bar"
-                  oninput="window.__playerScrub(this.value)"
-                />
-                <span class="player-time-badge" id="rasagulla-time-badge">
-                  ${formatTime(p.currentTime)} / ${formatTime(p.duration)}
-                </span>
-              </div>
-            `
-              : ""
-          }
-
-          <!-- Single-Line Horizontal Scrollable Strip for Mirrors, Quality & Proxy -->
-          <div class="player-pills-dock">
-            <div class="player-scroll-strip" role="toolbar" aria-label="Stream Mirrors and Quality">
-              ${p.sources
-                .map(
-                  (src, idx) => `
-                <button
-                  class="player-chip-btn ${idx === p.activeSourceIndex ? "active-chip" : ""}"
-                  data-focusable
-                  data-focus-id="player-mirror-${idx}"
-                  onclick="window.__selectStreamMirror(${idx})"
-                >
-                  ${ICONS.server}
-                  <span>${escapeHtml(src.label)}</span>
-                </button>
-              `
-                )
-                .join("")}
-
-              ${
-                !isIframe
-                  ? ["1080p", "720p", "Auto"]
-                      .map(
-                        (q) => `
-                  <button
-                    class="player-chip-btn ${p.selectedQuality === q ? "crimson-chip" : ""}"
-                    data-focusable
-                    data-focus-id="player-q-${q}"
-                    onclick="window.__selectQuality('${q}')"
-                  >
-                    <span>${q === "1080p" ? "1080p HD" : q}</span>
-                  </button>
-                `
-                      )
-                      .join("")
-                  : ""
-              }
-
-              ${
-                !isIframe
-                  ? `
-                <button
-                  class="player-chip-btn ${p.useProxy ? "active-chip" : ""}"
-                  data-focusable
-                  data-focus-id="player-proxy-btn"
-                  onclick="window.__toggleProxyMode()"
-                >
-                  ${ICONS.shield}
-                  <span>${p.useProxy ? "Proxy Boost: ON" : "Proxy Boost"}</span>
-                </button>
-              `
-                  : ""
-              }
-            </div>
-          </div>
-        </div>
+        ${renderPlayerHudMarkup()}
       </div>
-
-      ${
-        p.exitConfirmOpen
-          ? `
-        <div class="modal-backdrop">
-          <div class="modal-card" style="max-width:360px; text-align:center;">
-            <div style="font-size:17px; font-weight:900;">Exit Video Player?</div>
-            <div style="font-size:13px; color:var(--text-secondary);">
-              Your playback position is saved automatically.
-            </div>
-            <div style="display:flex; gap:10px; justify-content:center; margin-top:6px;">
-              <button
-                class="pill-action-btn live-pill"
-                data-focusable
-                data-focus-id="exit-confirm-yes"
-                onclick="window.__confirmClosePlayer()"
-              >
-                <span>Exit to Catalog</span>
-              </button>
-              <button
-                class="pill-action-btn"
-                data-focusable
-                data-focus-id="exit-confirm-no"
-                onclick="window.__cancelClosePlayer()"
-              >
-                <span>Keep Watching</span>
-              </button>
-            </div>
-          </div>
-        </div>
-      `
-          : ""
-      }
     </div>
   `;
+}
+
+function renderPlayerStageStatusMarkup() {
+  const p = state.player;
+  if (p.loadingStream) {
+    return `
+      <div style="display:flex; flex-direction:column; align-items:center; gap:12px; background:rgba(5,6,10,0.72); padding:20px 28px; border-radius:18px; border:1px solid var(--border-subtle);">
+        <div style="width:46px; height:46px; border:3.5px solid rgba(255,255,255,0.18); border-top-color:var(--accent-rose); border-radius:50%; animation:spin 0.8s linear infinite;"></div>
+        <div style="font-size:14px; font-weight:800; color:#fff;">Connecting 1080p HD Stream...</div>
+        <style>@keyframes spin { to { transform: rotate(360deg); } }</style>
+      </div>
+    `;
+  }
+  if (p.error) {
+    return `
+      <div style="max-width:440px; padding:24px; border-radius:18px; background:rgba(15,19,30,0.95); border:1.5px solid var(--border-bright); text-align:center; pointer-events:auto;">
+        <div style="font-size:16px; font-weight:900; color:#fff; margin-bottom:6px;">Stream Mirror Busy</div>
+        <div style="font-size:12.5px; color:var(--text-secondary); margin-bottom:16px;">${escapeHtml(p.error)}</div>
+        <div style="display:flex; gap:10px; justify-content:center; flex-wrap:wrap;">
+          <button class="player-chip-btn crimson-chip" data-focusable data-focus-row="player-row-center" data-focus-id="player-err-proxy" onclick="window.__retryWithProxy()">
+            ${ICONS.shield}<span>Boost with Proxy</span>
+          </button>
+          <button class="player-chip-btn" data-focusable data-focus-row="player-row-center" data-focus-id="player-err-next" onclick="window.__switchNextMirror()">
+            ${ICONS.server}<span>Next Mirror</span>
+          </button>
+        </div>
+      </div>
+    `;
+  }
+  return "";
+}
+
+function updatePlayerHudInPlace() {
+  const statusEl = document.getElementById("rasagulla-stage-status");
+  if (statusEl) {
+    statusEl.innerHTML = renderPlayerStageStatusMarkup();
+  }
+  const hudEl = document.getElementById("rasagulla-player-hud");
+  if (hudEl) {
+    const prevFocusId =
+      document.activeElement?.getAttribute("data-focus-id") ||
+      document.querySelector("#rasagulla-player-hud .tv-focused")?.getAttribute("data-focus-id");
+    hudEl.className = `player-hud-overlay ${state.player.hudVisible ? "" : "hud-hidden"}`;
+    hudEl.innerHTML = renderPlayerHudMarkup();
+    if (prevFocusId) {
+      const restored = hudEl.querySelector(`[data-focus-id="${CSS.escape(prevFocusId)}"]`);
+      if (restored) applyTvFocus(restored, false);
+    }
+  }
 }
 
 // ============================================================================
 // VIDEO STREAM RESOLUTION & HLS PLAYBACK CONTROLLER
 // ============================================================================
 
-async function startPlayback(mediaItem) {
+function pushModalHistoryState(modalName) {
+  try {
+    window.history.pushState({ rasagullaModal: modalName }, "");
+  } catch (_) {}
+}
+
+async function startPlayback(mediaItem, launchedFromFocusId) {
+  if (launchedFromFocusId) {
+    state.lastLaunchedCardFocusId = launchedFromFocusId;
+  }
   destroyActiveVideo();
 
   state.player.open = true;
@@ -1820,10 +2038,24 @@ async function startPlayback(mediaItem) {
   state.player.duration = 0;
   state.player.useProxy = false;
   state.player.hudVisible = true;
-  state.player.exitConfirmOpen = false;
 
+  pushModalHistoryState("player");
+
+  // Full render mounts #rasagulla-player-modal and #rasagulla-video-el synchronously
+  const existingModal = document.getElementById("rasagulla-player-modal");
+  if (existingModal) existingModal.remove();
   renderApp();
   scheduleHudAutoHide();
+
+  // Synchronously prime the <video> element inside the user click/Enter gesture
+  // so TV browsers & mobile Safari/Chrome permit unmuted playback once HLS loads
+  const videoEl = document.getElementById("rasagulla-video-el");
+  if (videoEl) {
+    try {
+      videoEl.muted = false;
+      videoEl.load();
+    } catch (_) {}
+  }
 
   const targetUrl = mediaItem.episodePageUrl || mediaItem.moviePageUrl || "";
   try {
@@ -1864,9 +2096,10 @@ async function startPlayback(mediaItem) {
     }
   }
 
+  if (!state.player.open) return;
   state.player.loadingStream = false;
   state.player.activeSourceIndex = 0;
-  renderApp();
+  updatePlayerHudInPlace();
   mountActiveStreamSource();
 }
 
@@ -1889,6 +2122,26 @@ function destroyActiveVideo() {
   }
 }
 
+function safePlayVideo(video) {
+  if (!video) return;
+  const playPromise = video.play();
+  if (playPromise && typeof playPromise.catch === "function") {
+    playPromise.catch(() => {
+      // If TV browser blocked unmuted autoplay, start muted and unmute on next key/click
+      video.muted = true;
+      video.play().catch(() => {});
+      showToast("Playing — Press OK or Tap to Unmute Audio");
+      const unmuteOnce = () => {
+        video.muted = false;
+        window.removeEventListener("keydown", unmuteOnce);
+        window.removeEventListener("click", unmuteOnce);
+      };
+      window.addEventListener("keydown", unmuteOnce, { once: true });
+      window.addEventListener("click", unmuteOnce, { once: true });
+    });
+  }
+}
+
 function mountActiveStreamSource() {
   destroyActiveVideo();
 
@@ -1902,21 +2155,43 @@ function mountActiveStreamSource() {
       /live1channel|live2channel|watch-live-stream/i.test(srcObj.url || "")
   );
 
-  // Re-render HUD so live vs VOD bar matches active source
-  renderApp();
+  updatePlayerHudInPlace();
   scheduleHudAutoHide();
 
   setTimeout(() => {
     const playBtn = document.querySelector('[data-focus-id="player-play-btn"]');
     const mirrorBtn = document.querySelector('[data-focus-id="player-mirror-0"]');
-    if (playBtn) playBtn.focus({ preventScroll: true });
-    else if (mirrorBtn) mirrorBtn.focus({ preventScroll: true });
-  }, 60);
-
-  if (srcObj.type === "iframe") return;
+    if (playBtn) applyTvFocus(playBtn, false);
+    else if (mirrorBtn) applyTvFocus(mirrorBtn, false);
+  }, 40);
 
   const video = document.getElementById("rasagulla-video-el");
+  const iframeSlot = document.getElementById("rasagulla-iframe-slot");
+
+  if (srcObj.type === "iframe") {
+    if (video) video.style.display = "none";
+    if (iframeSlot) {
+      iframeSlot.style.display = "block";
+      iframeSlot.innerHTML = `
+        <iframe
+          id="rasagulla-iframe-player"
+          src="${escapeAttr(srcObj.url)}"
+          allow="autoplay; fullscreen; encrypted-media; picture-in-picture"
+          allowfullscreen
+          referrerpolicy="no-referrer"
+          style="width:100%; height:100%; border:none;"
+        ></iframe>
+      `;
+    }
+    return;
+  }
+
+  if (iframeSlot) {
+    iframeSlot.style.display = "none";
+    iframeSlot.innerHTML = "";
+  }
   if (!video) return;
+  video.style.display = "block";
 
   const rawOrProxiedUrl = p.useProxy
     ? srcObj.proxiedUrl || `/api/proxy?url=${encodeURIComponent(srcObj.rawUrl || srcObj.url)}`
@@ -1925,7 +2200,11 @@ function mountActiveStreamSource() {
   const savedEntry = state.watchHistory[p.episode?.id];
   const resumeSec = !p.isLive && savedEntry && savedEntry.positionSec > 5 ? savedEntry.positionSec : 0;
 
-  if (window.Hls && window.Hls.isSupported() && (srcObj.type === "hls" || /\.m3u8|\/api\/proxy|hls/i.test(rawOrProxiedUrl))) {
+  if (
+    window.Hls &&
+    window.Hls.isSupported() &&
+    (srcObj.type === "hls" || /\.m3u8|\/api\/proxy|hls/i.test(rawOrProxiedUrl))
+  ) {
     const hls = new window.Hls({
       enableWorker: true,
       lowLatencyMode: true,
@@ -1940,7 +2219,7 @@ function mountActiveStreamSource() {
       if (resumeSec > 0) {
         video.currentTime = resumeSec;
       }
-      video.play().catch(() => {});
+      safePlayVideo(video);
     });
 
     hls.on(window.Hls.Events.ERROR, (_ev, data) => {
@@ -1956,7 +2235,7 @@ function mountActiveStreamSource() {
           mountActiveStreamSource();
         } else {
           p.error = "Unable to reach upstream video server. Try another mirror.";
-          renderApp();
+          updatePlayerHudInPlace();
         }
       }
     });
@@ -1966,7 +2245,7 @@ function mountActiveStreamSource() {
       "loadedmetadata",
       () => {
         if (resumeSec > 0) video.currentTime = resumeSec;
-        video.play().catch(() => {});
+        safePlayVideo(video);
       },
       { once: true }
     );
@@ -1994,7 +2273,6 @@ function mountActiveStreamSource() {
     p.currentTime = video.currentTime || 0;
     const dur = video.duration;
     if (Number.isFinite(dur) && dur > 0) {
-      // If duration is <= 60s on a live channel, mark as live
       if (dur <= 60 && /live/i.test(srcObj.label + " " + srcObj.url)) {
         p.isLive = true;
       }
@@ -2056,12 +2334,12 @@ function scheduleHudAutoHide() {
   if (hud) hud.classList.remove("hud-hidden");
 
   state.player.hudTimer = setTimeout(() => {
-    if (state.player.open && state.player.isPlaying && !state.player.exitConfirmOpen) {
+    if (state.player.open && state.player.isPlaying) {
       state.player.hudVisible = false;
       const h = document.getElementById("rasagulla-player-hud");
       if (h) h.classList.add("hud-hidden");
     }
-  }, 4200);
+  }, 4500);
 }
 
 // ============================================================================
@@ -2073,6 +2351,12 @@ window.__switchTab = function (tabId) {
   state.shelfOpenForShow = null;
   renderApp();
   window.scrollTo({ top: 0, behavior: "smooth" });
+  setTimeout(() => {
+    const firstMain =
+      document.querySelector(".main-stage .content-container [data-focusable]") ||
+      document.querySelector('[data-focus-id="hero-primary-btn"]');
+    if (firstMain) applyTvFocus(firstMain, false);
+  }, 30);
 };
 
 window.__selectHeroChar = function (index, triggerAction = false) {
@@ -2082,8 +2366,10 @@ window.__selectHeroChar = function (index, triggerAction = false) {
     state.selectedShow = char.targetShow;
   }
   renderApp();
+  const btn = document.querySelector('[data-focus-id="hero-primary-btn"]');
+  if (btn) applyTvFocus(btn, false);
   if (triggerAction) {
-    window.__activateHeroChar();
+    window.__playHeroFeatured();
   }
 };
 
@@ -2095,7 +2381,27 @@ window.__cycleHero = function (delta) {
   }
   renderApp();
   const btn = document.querySelector('[data-focus-id="hero-primary-btn"]');
-  if (btn) btn.focus({ preventScroll: true });
+  if (btn) applyTvFocus(btn, false);
+};
+
+window.__playHeroFeatured = function () {
+  const char = HERO_CHARACTERS[state.heroIndex];
+  if (!char) return;
+  if (char.targetTab === "movies") {
+    window.__switchTab("movies");
+    return;
+  }
+  if (char.targetTab === "shows") {
+    window.__switchTab("shows");
+    return;
+  }
+  const showEps = state.episodes.filter((e) => e.showName === char.targetShow);
+  const firstVodOrLive = showEps.find((e) => !e.isLiveStream) || showEps[0];
+  if (firstVodOrLive) {
+    startPlayback(firstVodOrLive, "hero-primary-btn");
+  } else {
+    window.__activateHeroChar();
+  }
 };
 
 window.__activateHeroChar = function () {
@@ -2111,18 +2417,19 @@ window.__activateHeroChar = function () {
   }
   state.selectedShow = char.targetShow;
   state.shelfOpenForShow = char.targetShow;
+  pushModalHistoryState("shelf");
   renderApp();
   setTimeout(() => {
     const firstEp = document.querySelector('[data-focus-id="shelf-ep-0"]');
-    if (firstEp) firstEp.focus({ preventScroll: true });
-  }, 50);
+    if (firstEp) applyTvFocus(firstEp, false);
+  }, 40);
 };
 
 window.__closeShelfModal = function () {
   state.shelfOpenForShow = null;
   renderApp();
   const heroBtn = document.querySelector('[data-focus-id="hero-primary-btn"]');
-  if (heroBtn) heroBtn.focus({ preventScroll: true });
+  if (heroBtn) applyTvFocus(heroBtn, false);
 };
 
 window.__openShowHub = function (showName) {
@@ -2134,6 +2441,10 @@ window.__openShowHub = function (showName) {
   state.activeTab = "shows";
   renderApp();
   window.scrollTo({ top: 0, behavior: "smooth" });
+  setTimeout(() => {
+    const firstEp = document.querySelector('[data-focus-id="hub-ep-0"]');
+    if (firstEp) applyTvFocus(firstEp, false);
+  }, 40);
 };
 
 window.__selectShowPill = function (showName) {
@@ -2141,6 +2452,10 @@ window.__selectShowPill = function (showName) {
   state.selectedSeason = null;
   state.seasonEpisodes = null;
   state.seasonEpisodesKey = null;
+  const charIdx = HERO_CHARACTERS.findIndex((c) => c.targetShow === showName && c.targetTab === "home");
+  if (charIdx >= 0) {
+    state.heroIndex = charIdx;
+  }
   renderApp();
 };
 
@@ -2160,7 +2475,6 @@ window.__selectSeason = async function (seasonId) {
     if (Array.isArray(data.episodes) && data.episodes.length > 0) {
       state.seasonEpisodes = data.episodes;
       state.seasonEpisodesKey = `${state.selectedShow}:${sObj.id}`;
-      // Also merge newly fetched episodes into state.episodes so __playEpisodeById finds them
       const existingIds = new Set(state.episodes.map((e) => e.id));
       data.episodes.forEach((ep) => {
         if (!existingIds.has(ep.id)) {
@@ -2174,11 +2488,14 @@ window.__selectSeason = async function (seasonId) {
   } finally {
     state.loadingSeason = false;
     renderApp();
+    const pill = document.querySelector(`[data-focus-id="season-pill-${CSS.escape(String(seasonId))}"]`);
+    if (pill) applyTvFocus(pill, false);
   }
 };
 
 window.__openSearch = function () {
   state.searchModalOpen = true;
+  pushModalHistoryState("search");
   renderApp();
   setTimeout(() => {
     const input = document.getElementById("rasagulla-search-input");
@@ -2208,32 +2525,35 @@ window.__refreshFeeds = function () {
 
 window.__playLive24x7 = function () {
   const liveEp = state.episodes.find((e) => e.isLiveStream) || INITIAL_EPISODES[0];
-  startPlayback(liveEp);
+  startPlayback(liveEp, "top-live-btn");
 };
 
-window.__playEpisodeById = function (epId) {
+window.__playEpisodeById = function (epId, focusId) {
   state.shelfOpenForShow = null;
   const found =
     state.episodes.find((e) => e.id === epId) ||
     state.myList.find((e) => e.id === epId) ||
     state.watchHistory[epId];
   if (found) {
-    startPlayback(found);
+    startPlayback(found, focusId);
   }
 };
 
-window.__playMovieById = function (movId) {
+window.__playMovieById = function (movId, focusId) {
   const mov = state.movies.find((m) => m.id === movId);
   if (mov) {
-    startPlayback({
-      id: mov.id,
-      title: mov.title,
-      showName: mov.languageAndYear || "Tamil Cinema",
-      date: mov.qualityBadge || "1080p HDRip",
-      thumbnailUrl: mov.posterUrl,
-      episodePageUrl: mov.moviePageUrl,
-      isLiveStream: false,
-    });
+    startPlayback(
+      {
+        id: mov.id,
+        title: mov.title,
+        showName: mov.languageAndYear || "Tamil Cinema",
+        date: mov.qualityBadge || "1080p HDRip",
+        thumbnailUrl: mov.posterUrl,
+        episodePageUrl: mov.moviePageUrl,
+        isLiveStream: false,
+      },
+      focusId
+    );
   }
 };
 
@@ -2251,15 +2571,12 @@ window.__onVideoStageTap = function (event) {
   const rect = event.currentTarget.getBoundingClientRect();
   const relX = (event.clientX - rect.left) / Math.max(1, rect.width);
 
-  // Double-tap left/right 35% of video stage seeks -10s / +10s on VOD
   if (now - lastStageTapTime < 280 && !state.player.isLive) {
     if (relX < 0.35) {
       window.__playerSeekRelative(-10);
-      showToast("Rewound 10s");
       return;
     } else if (relX > 0.65) {
       window.__playerSeekRelative(10);
-      showToast("Forwarded 10s");
       return;
     }
   }
@@ -2293,6 +2610,7 @@ window.__playerSeekRelative = function (deltaSec) {
   video.currentTime = target;
   state.player.currentTime = target;
   updateSeekDom();
+  showToast(deltaSec > 0 ? `Forwarded +${deltaSec}s` : `Rewound ${deltaSec}s`);
 };
 
 window.__playerScrub = function (val) {
@@ -2337,7 +2655,7 @@ window.__selectQuality = function (quality) {
     applyHlsQualityPreference(state.player.hlsInstance, quality);
   }
   showToast(`Quality set to ${quality}`);
-  renderApp();
+  updatePlayerHudInPlace();
 };
 
 window.__toggleProxyMode = function () {
@@ -2400,54 +2718,104 @@ window.__toggleCurrentEpisodeMyList = function () {
   }
 };
 
-window.__requestClosePlayer = function () {
-  state.player.exitConfirmOpen = true;
-  state.player.hudVisible = true;
-  renderApp();
-  setTimeout(() => {
-    const btn = document.querySelector('[data-focus-id="exit-confirm-yes"]');
-    if (btn) btn.focus({ preventScroll: true });
-  }, 40);
-};
-
-window.__cancelClosePlayer = function () {
-  state.player.exitConfirmOpen = false;
-  renderApp();
-  scheduleHudAutoHide();
-};
-
 window.__confirmClosePlayer = function () {
   destroyActiveVideo();
   if (document.fullscreenElement && document.exitFullscreen) {
     document.exitFullscreen().catch(() => {});
   }
   state.player.open = false;
-  state.player.exitConfirmOpen = false;
+  const modal = document.getElementById("rasagulla-player-modal");
+  if (modal) modal.remove();
   renderApp();
+
+  // Restore focus to the exact episode/movie card that opened the player
+  setTimeout(() => {
+    const restoreId = state.lastLaunchedCardFocusId || state.lastMainStageFocusId;
+    const restoredEl = restoreId
+      ? document.querySelector(`[data-focus-id="${CSS.escape(restoreId)}"]`)
+      : null;
+    if (restoredEl) {
+      applyTvFocus(restoredEl, true);
+    }
+  }, 40);
 };
 
 // ============================================================================
-// SPATIAL 2D D-PAD & TV REMOTE NAVIGATION ENGINE
+// DETERMINISTIC ROW-BASED TV D-PAD, REMOTE KEYCODE & POINTER NAVIGATION ENGINE
 // ============================================================================
 
 function setupSpatialDpadNavigation() {
+  // 1. Hardware Back button on Android TV Browsers triggers history popstate
+  window.addEventListener("popstate", () => {
+    if (state.player.open) {
+      window.__confirmClosePlayer();
+      return;
+    }
+    if (state.searchModalOpen) {
+      window.__closeSearch();
+      return;
+    }
+    if (state.shelfOpenForShow) {
+      window.__closeShelfModal();
+      return;
+    }
+  });
+
+  // 2. Sync .tv-focused when user hovers with a TV Virtual Cursor / Air-Mouse
+  document.addEventListener("mouseover", (e) => {
+    const focusable = e.target?.closest?.("[data-focusable]");
+    if (focusable) {
+      document.querySelectorAll(".tv-focused").forEach((node) => {
+        if (node !== focusable) node.classList.remove("tv-focused");
+      });
+      focusable.classList.add("tv-focused");
+    }
+  });
+
+  // 3. TV Remote & Keyboard Keydown Handler
   window.addEventListener("keydown", (e) => {
-    const tag = (document.activeElement?.tagName || "").toLowerCase();
-    if (tag === "input" && e.key !== "Escape" && e.key !== "ArrowDown" && e.key !== "ArrowUp") {
+    const activeEl = document.activeElement;
+    const tag = (activeEl?.tagName || "").toLowerCase();
+
+    const isUp = e.key === "ArrowUp" || e.key === "Up" || e.keyCode === 38;
+    const isDown = e.key === "ArrowDown" || e.key === "Down" || e.keyCode === 40;
+    const isLeft = e.key === "ArrowLeft" || e.key === "Left" || e.keyCode === 37;
+    const isRight = e.key === "ArrowRight" || e.key === "Right" || e.keyCode === 39;
+    const isEnter =
+      e.key === "Enter" ||
+      e.key === "NumpadEnter" ||
+      e.keyCode === 13 ||
+      e.keyCode === 23; // Android TV KEYCODE_DPAD_CENTER
+    const isBack =
+      e.key === "Escape" ||
+      e.key === "Backspace" ||
+      e.key === "GoBack" ||
+      e.key === "BrowserBack" ||
+      e.keyCode === 4 ||
+      e.keyCode === 27 ||
+      e.keyCode === 461 ||
+      e.keyCode === 10009;
+
+    // Allow typing inside Search Input
+    if (tag === "input" && activeEl.type === "text") {
+      if (isBack) {
+        e.preventDefault();
+        window.__closeSearch();
+      } else if (isDown) {
+        e.preventDefault();
+        moveFocusByRow("down");
+      }
       return;
     }
 
-    // Player Hardware Remote Keybindings
+    // Video Player Remote Keybindings
     if (state.player.open) {
+      const hudWasHidden = !state.player.hudVisible;
       scheduleHudAutoHide();
 
-      if (e.key === "Escape" || e.key === "Backspace") {
+      if (isBack) {
         e.preventDefault();
-        if (state.player.exitConfirmOpen) {
-          window.__confirmClosePlayer();
-        } else {
-          window.__requestClosePlayer();
-        }
+        window.__confirmClosePlayer();
         return;
       }
       if (e.key === "MediaPlayPause" || e.key === " ") {
@@ -2465,95 +2833,223 @@ function setupSpatialDpadNavigation() {
         window.__playerSeekRelative(10);
         return;
       }
-    } else {
-      if (e.key === "Escape" || e.key === "Backspace") {
-        if (state.searchModalOpen) {
-          e.preventDefault();
-          window.__closeSearch();
-          return;
-        }
-        if (state.shelfOpenForShow) {
-          e.preventDefault();
-          window.__closeShelfModal();
-          return;
-        }
-      }
-    }
 
-    // Hero Carousel Left/Right Cycling when focused on the Hero Explore button
-    if (
-      document.activeElement?.getAttribute("data-hero-stage") === "true" &&
-      (e.key === "ArrowLeft" || e.key === "ArrowRight")
-    ) {
-      e.preventDefault();
-      window.__cycleHero(e.key === "ArrowRight" ? 1 : -1);
+      // If HUD was hidden and user pressed Left/Right on TV remote, immediately seek -10s / +10s!
+      if (hudWasHidden && (isLeft || isRight) && !state.player.isLive) {
+        e.preventDefault();
+        window.__playerSeekRelative(isRight ? 10 : -10);
+        return;
+      }
+
+      // If focused on Seek Slider, Left/Right scrubs -10s / +10s
+      if (activeEl?.id === "rasagulla-seek-slider" && (isLeft || isRight)) {
+        e.preventDefault();
+        window.__playerSeekRelative(isRight ? 10 : -10);
+        return;
+      }
+
+      if (isEnter) {
+        const focusedNode =
+          document.querySelector("#rasagulla-player-hud .tv-focused") || activeEl;
+        if (focusedNode && focusedNode.hasAttribute("data-focusable")) {
+          e.preventDefault();
+          focusedNode.click();
+          return;
+        }
+        e.preventDefault();
+        window.__playerTogglePlay();
+        return;
+      }
+
+      if (isUp || isDown || isLeft || isRight) {
+        e.preventDefault();
+        const dir = isUp ? "up" : isDown ? "down" : isLeft ? "left" : "right";
+        moveFocusByRow(dir);
+        return;
+      }
       return;
     }
 
-    if (["ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight"].includes(e.key)) {
+    // Modal Back handling
+    if (isBack) {
+      if (state.searchModalOpen) {
+        e.preventDefault();
+        window.__closeSearch();
+        return;
+      }
+      if (state.shelfOpenForShow) {
+        e.preventDefault();
+        window.__closeShelfModal();
+        return;
+      }
+    }
+
+    const currentFocused =
+      document.querySelector(".tv-focused") ||
+      (activeEl?.hasAttribute?.("data-focusable") ? activeEl : null);
+
+    // Hero Stage: Pressing Left/Right on Hero Primary Button cycles the 7 characters smoothly
+    if (
+      currentFocused &&
+      currentFocused.getAttribute("data-focus-id") === "hero-primary-btn" &&
+      (isLeft || isRight)
+    ) {
       e.preventDefault();
-      moveSpatialFocus(e.key.replace("Arrow", "").toLowerCase());
+      window.__cycleHero(isRight ? 1 : -1);
+      return;
+    }
+
+    // Enter / DPAD_CENTER triggers click on the currently focused TV element
+    if (isEnter && currentFocused) {
+      e.preventDefault();
+      currentFocused.click();
+      return;
+    }
+
+    if (isUp || isDown || isLeft || isRight) {
+      e.preventDefault();
+      const dir = isUp ? "up" : isDown ? "down" : isLeft ? "left" : "right";
+      moveFocusByRow(dir);
     }
   });
 }
 
-function moveSpatialFocus(direction) {
-  let scopeRoot = document;
+function getActiveScopeRoot() {
   if (state.player.open) {
-    scopeRoot = document.getElementById("rasagulla-player-modal") || document;
-  } else if (state.searchModalOpen) {
-    scopeRoot = document.querySelector(".modal-backdrop") || document;
-  } else if (state.shelfOpenForShow) {
-    scopeRoot = document.querySelector(".shelf-modal-sheet") || document;
+    return document.getElementById("rasagulla-player-modal") || document;
   }
+  if (state.searchModalOpen) {
+    return document.querySelector(".modal-backdrop") || document;
+  }
+  if (state.shelfOpenForShow) {
+    return document.querySelector(".shelf-modal-sheet") || document;
+  }
+  return document;
+}
 
-  const candidates = Array.from(scopeRoot.querySelectorAll("[data-focusable]")).filter((el) => {
-    const r = el.getBoundingClientRect();
-    return r.width > 0 && r.height > 0;
-  });
+/**
+ * Deterministic Row-Based Spatial Navigation (Netflix Android TV Architecture)
+ * - Groups visible focusable elements by `data-focus-row` in vertical order.
+ * - Left / Right moves strictly along the current row (or into/out of `left-rail`).
+ * - Up / Down moves deterministically to the previous / next row, restoring
+ *   the remembered item in that row or matching horizontal column index.
+ */
+function moveFocusByRow(direction) {
+  const scopeRoot = getActiveScopeRoot();
+  const allNodes = Array.from(scopeRoot.querySelectorAll("[data-focusable]")).filter(
+    (el) => el.offsetParent !== null
+  );
+  if (allNodes.length === 0) return;
 
-  if (candidates.length === 0) return;
+  let current =
+    scopeRoot.querySelector(".tv-focused") ||
+    (document.activeElement && allNodes.includes(document.activeElement)
+      ? document.activeElement
+      : null);
 
-  const current = document.activeElement;
-  if (!current || !candidates.includes(current)) {
-    candidates[0].focus({ preventScroll: false });
-    candidates[0].scrollIntoView({ block: "nearest", inline: "nearest", behavior: "smooth" });
+  if (!current || !allNodes.includes(current)) {
+    const fallback =
+      scopeRoot.querySelector('[data-focus-id="hero-primary-btn"]') || allNodes[0];
+    applyTvFocus(fallback, true);
     return;
   }
 
-  const curRect = current.getBoundingClientRect();
-  const curCx = curRect.left + curRect.width / 2;
-  const curCy = curRect.top + curRect.height / 2;
+  const currentRowName = current.getAttribute("data-focus-row") || "default";
 
-  let bestCandidate = null;
-  let bestScore = Infinity;
+  // Separate Left Rail from Main Content Rows
+  const leftRailNodes = allNodes.filter((el) => el.getAttribute("data-focus-row") === "left-rail");
+  const mainNodes = allNodes.filter((el) => el.getAttribute("data-focus-row") !== "left-rail");
 
-  for (const el of candidates) {
-    if (el === current) continue;
-    const r = el.getBoundingClientRect();
-    const cx = r.left + r.width / 2;
-    const cy = r.top + r.height / 2;
-    const dx = cx - curCx;
-    const dy = cy - curCy;
-
-    if (direction === "right" && dx <= 6) continue;
-    if (direction === "left" && dx >= -6) continue;
-    if (direction === "down" && dy <= 6) continue;
-    if (direction === "up" && dy >= -6) continue;
-
-    const primaryDist = direction === "left" || direction === "right" ? Math.abs(dx) : Math.abs(dy);
-    const orthoDist = direction === "left" || direction === "right" ? Math.abs(dy) : Math.abs(dx);
-    const score = primaryDist + orthoDist * 2.6;
-
-    if (score < bestScore) {
-      bestScore = score;
-      bestCandidate = el;
+  // Case 1: Currently inside Left Rail
+  if (currentRowName === "left-rail") {
+    const idx = leftRailNodes.indexOf(current);
+    if (direction === "up" && idx > 0) {
+      applyTvFocus(leftRailNodes[idx - 1], false);
+      return;
     }
+    if (direction === "down" && idx + 1 < leftRailNodes.length) {
+      applyTvFocus(leftRailNodes[idx + 1], false);
+      return;
+    }
+    if (direction === "right" && mainNodes.length > 0) {
+      const remembered = state.lastMainStageFocusId
+        ? scopeRoot.querySelector(`[data-focus-id="${CSS.escape(state.lastMainStageFocusId)}"]`)
+        : null;
+      applyTvFocus(remembered || mainNodes[0], true);
+      return;
+    }
+    return;
   }
 
-  if (bestCandidate) {
-    bestCandidate.focus({ preventScroll: false });
-    bestCandidate.scrollIntoView({ block: "nearest", inline: "nearest", behavior: "smooth" });
+  // Build ordered list of Main Rows
+  const rowOrder = [];
+  const rowMap = new Map();
+  for (const node of mainNodes) {
+    const rName = node.getAttribute("data-focus-row") || "default";
+    if (!rowMap.has(rName)) {
+      rowMap.set(rName, []);
+      rowOrder.push(rName);
+    }
+    rowMap.get(rName).push(node);
+  }
+
+  const currentRowItems = rowMap.get(currentRowName) || [current];
+  const colIdx = Math.max(0, currentRowItems.indexOf(current));
+  const rowIdx = rowOrder.indexOf(currentRowName);
+
+  if (direction === "left") {
+    if (colIdx > 0) {
+      applyTvFocus(currentRowItems[colIdx - 1], true);
+      return;
+    }
+    // At leftmost edge of a row: jump to active Left Rail item if visible
+    if (leftRailNodes.length > 0) {
+      const activeRailBtn =
+        leftRailNodes.find((b) => b.classList.contains("active")) || leftRailNodes[0];
+      applyTvFocus(activeRailBtn, false);
+    }
+    return;
+  }
+
+  if (direction === "right") {
+    if (colIdx + 1 < currentRowItems.length) {
+      applyTvFocus(currentRowItems[colIdx + 1], true);
+    }
+    return;
+  }
+
+  if (direction === "up" || direction === "down") {
+    const targetRowIdx = direction === "down" ? rowIdx + 1 : rowIdx - 1;
+    if (targetRowIdx < 0 || targetRowIdx >= rowOrder.length) return;
+
+    const targetRowName = rowOrder[targetRowIdx];
+    const targetRowItems = rowMap.get(targetRowName) || [];
+    if (targetRowItems.length === 0) return;
+
+    // 1. If target row is a 4-column grid row, preserve the column index (0..3)
+    if (targetRowName.includes("-grid-") && currentRowName.includes("-grid-")) {
+      const clampedIdx = Math.min(colIdx, targetRowItems.length - 1);
+      applyTvFocus(targetRowItems[clampedIdx], true);
+      return;
+    }
+
+    // 2. Check row focus memory for horizontal rails / pill bars
+    const rememberedId = state.rowFocusMemory[targetRowName];
+    if (rememberedId) {
+      const rememberedNode = targetRowItems.find(
+        (el) => el.getAttribute("data-focus-id") === rememberedId
+      );
+      if (rememberedNode) {
+        applyTvFocus(rememberedNode, true);
+        return;
+      }
+    }
+
+    // 3. Default to primary hero button on Hero row, or first item in row
+    const heroPrimary = targetRowItems.find(
+      (el) => el.getAttribute("data-focus-id") === "hero-primary-btn"
+    );
+    applyTvFocus(heroPrimary || targetRowItems[0], true);
   }
 }
 
