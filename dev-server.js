@@ -6,6 +6,8 @@ const url = require("url");
 const catalogHandler = require("./api/catalog");
 const streamHandler = require("./api/stream");
 const proxyHandler = require("./api/proxy");
+const imageHandler = require("./api/image");
+const cutoutHandler = require("./api/cutout");
 
 const PORT = process.env.PORT || 3000;
 const PUBLIC_DIR = path.join(__dirname, "public");
@@ -56,6 +58,16 @@ const server = http.createServer(async (req, res) => {
   }
   if (parsed.pathname === "/api/proxy") {
     return proxyHandler(req, vRes);
+  }
+  if (parsed.pathname === "/api/image") {
+    return imageHandler(req, vRes);
+  }
+  if (parsed.pathname === "/api/cutout") {
+    return cutoutHandler(req, vRes);
+  }
+  if (parsed.pathname && parsed.pathname.startsWith("/assets/cutouts/")) {
+    req.query.name = path.basename(parsed.pathname, ".png");
+    return cutoutHandler(req, vRes);
   }
 
   let filePath = path.join(PUBLIC_DIR, parsed.pathname === "/" ? "index.html" : parsed.pathname);

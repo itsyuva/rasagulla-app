@@ -53,7 +53,7 @@ module.exports = async function handler(req, res) {
 
   const { referer, origin } = inferRefererAndOrigin(rawUrl);
   const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), 9500);
+  const timer = setTimeout(() => controller.abort(), 11000);
 
   try {
     const headers = {
@@ -78,38 +78,39 @@ module.exports = async function handler(req, res) {
 
     const finalUrl = upstream.url || rawUrl;
     const contentType = upstream.headers.get("content-type") || "";
+    const arrayBuffer = await upstream.arrayBuffer();
+    let buffer = Buffer.from(arrayBuffer);
+
+    // Detect HLS #EXTM3U manifest even if URL doesn't end in .m3u8 (e.g. hls2.vcdnx.com/hls/...)
+    const headStr = buffer.subarray(0, Math.min(buffer.length, 64)).toString("utf8").trimStart();
     const isM3u8 =
+      headStr.startsWith("#EXTM3U") ||
       /\.m3u8(\?|$)/i.test(finalUrl) ||
       /mpegurl|vnd\.apple\.mpegurl/i.test(contentType);
 
-    if (isM3u8) {
-      const text = await upstream.text();
-      if (text.trim().startsWith("#EXTM3U")) {
-        const baseObj = new URL(finalUrl);
-        const rewritten = text
-          .split(/\r?\n/)
-          .map((line) => {
-            const trimmed = line.trim();
-            if (!trimmed) return line;
-            if (trimmed.startsWith("#")) {
-              return line.replace(/URI=["']([^"']+)["']/gi, (_, uriVal) => {
-                const absUri = new URL(uriVal, baseObj).toString();
-                return `URI="/api/proxy?url=${encodeURIComponent(absUri)}"`;
-              });
-            }
-            const absLineUrl = new URL(trimmed, baseObj).toString();
-            return `/api/proxy?url=${encodeURIComponent(absLineUrl)}`;
-          })
-          .join("\n");
+    if (isM3u8 && headStr.startsWith("#EXTM3U")) {
+      const text = buffer.toString("utf8");
+      const baseObj = new URL(finalUrl);
+      const rewritten = text
+        .split(/\r?\n/)
+        .map((line) => {
+          const trimmed = line.trim();
+          if (!trimmed) return line;
+          if (trimmed.startsWith("#")) {
+            return line.replace(/URI=["']([^"']+)["']/gi, (_, uriVal) => {
+              const absUri = new URL(uriVal, baseObj).toString();
+              return `URI="/api/proxy?url=${encodeURIComponent(absUri)}"`;
+            });
+          }
+          const absLineUrl = new URL(trimmed, baseObj).toString();
+          return `/api/proxy?url=${encodeURIComponent(absLineUrl)}`;
+        })
+        .join("\n");
 
-        res.setHeader("Content-Type", "application/vnd.apple.mpegurl; charset=utf-8");
-        res.setHeader("Cache-Control", "public, max-age=4");
-        return res.status(200).send(rewritten);
-      }
+      res.setHeader("Content-Type", "application/vnd.apple.mpegurl; charset=utf-8");
+      res.setHeader("Cache-Control", "public, max-age=4");
+      return res.status(200).send(rewritten);
     }
-
-    const arrayBuffer = await upstream.arrayBuffer();
-    let buffer = Buffer.from(arrayBuffer);
 
     // SmartHlsDataSource TS Sync-Byte Alignment (strips disguised PNG/JPG headers before 0x47 sync bytes)
     if (buffer.length >= 377 && buffer[0] !== 0x47) {
