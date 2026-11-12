@@ -3,26 +3,29 @@ package com.example.ui.screens
 import android.app.Activity
 import android.content.Context
 import android.media.AudioManager
-import android.media.audiofx.DynamicsProcessing
-import android.media.audiofx.LoudnessEnhancer
 import android.net.Uri
-import android.os.Build
 import android.view.ViewGroup
 import android.view.WindowManager
 import android.webkit.WebChromeClient
+import android.webkit.WebResourceRequest
+import android.webkit.WebResourceResponse
 import android.webkit.WebSettings
 import android.webkit.WebView
 import android.webkit.WebViewClient
 import android.widget.FrameLayout
 import androidx.activity.compose.BackHandler
 import androidx.annotation.OptIn
-import androidx.compose.animation.*
+import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -44,11 +47,13 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusProperties
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.input.key.*
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
@@ -76,6 +81,7 @@ import androidx.media3.exoplayer.DefaultLoadControl
 import androidx.media3.exoplayer.DefaultRenderersFactory
 import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.exoplayer.source.DefaultMediaSourceFactory
+import androidx.media3.exoplayer.trackselection.DefaultTrackSelector
 import androidx.media3.ui.AspectRatioFrameLayout
 import androidx.media3.ui.PlayerView
 import coil.compose.AsyncImage
@@ -84,6 +90,7 @@ import com.example.viewmodel.MainViewModel
 import com.example.viewmodel.UiState
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
+import java.io.ByteArrayInputStream
 import java.util.Locale
 import kotlin.math.abs
 import kotlin.math.min
@@ -91,11 +98,10 @@ import kotlin.math.roundToInt
 
 /**
  * Custom Media3 DataSource wrapper that:
- * 1. Supports local file:// MP4 playback for offline chunked downloads.
+ * 1. Supports local file:// MP4 playback for offline downloads.
  * 2. Injects the appropriate Referer & Origin headers per CDN host.
  * 3. Detects and strips disguised image headers (e.g., PNG header prepended to MPEG-TS
- *    chunks on live/movie streams) so ExoPlayer's TsExtractor receives pure 0x47
- *    aligned MPEG-TS packets with Content-Type: video/mp2t.
+ *    chunks) so ExoPlayer's TsExtractor receives pure 0x47-aligned MPEG-TS packets.
  */
 @UnstableApi
 private class SmartHlsDataSource(
@@ -262,6 +268,58 @@ private class SmartHlsDataSource(
     }
 }
 
+private enum class VideoQualityPreset(
+    val label: String,
+    val badge: String,
+    val minWidth: Int,
+    val minHeight: Int,
+    val maxWidth: Int,
+    val maxHeight: Int,
+    val minBitrate: Int,
+    val maxBitrate: Int
+) {
+    FULL_HD_1080P(
+        label = "1080p Full HD",
+        badge = "1080p HD",
+        minWidth = 1280,
+        minHeight = 720,
+        maxWidth = 3840,
+        maxHeight = 2160,
+        minBitrate = 2_200_000,
+        maxBitrate = Int.MAX_VALUE
+    ),
+    HD_720P(
+        label = "720p HD",
+        badge = "720p HD",
+        minWidth = 854,
+        minHeight = 480,
+        maxWidth = 1280,
+        maxHeight = 720,
+        minBitrate = 900_000,
+        maxBitrate = 2_800_000
+    ),
+    SMOOTH_480P(
+        label = "480p Fast (No Buffer)",
+        badge = "480p Fast",
+        minWidth = 0,
+        minHeight = 0,
+        maxWidth = 854,
+        maxHeight = 480,
+        minBitrate = 0,
+        maxBitrate = 1_100_000
+    ),
+    AUTO_ADAPTIVE(
+        label = "Auto HD",
+        badge = "Auto HD",
+        minWidth = 0,
+        minHeight = 0,
+        maxWidth = 3840,
+        maxHeight = 2160,
+        minBitrate = 0,
+        maxBitrate = Int.MAX_VALUE
+    )
+}
+
 @OptIn(UnstableApi::class)
 @Composable
 fun VideoPlayerScreen(
@@ -274,55 +332,60 @@ fun VideoPlayerScreen(
     val videoUrlState by viewModel.videoUrlState.collectAsStateWithLifecycle()
     val episodeSources by viewModel.episodeSources.collectAsStateWithLifecycle()
     val selectedSource by viewModel.selectedSource.collectAsStateWithLifecycle()
-    val drcDialogBoostEnabled by viewModel.drcDialogBoostEnabled.collectAsStateWithLifecycle()
-    val p2pMeshEnabled by viewModel.p2pMeshEnabled.collectAsStateWithLifecycle()
 
     var isPlaying by remember { mutableStateOf(true) }
     var isBuffering by remember { mutableStateOf(true) }
+    var bufferingSeconds by remember { mutableIntStateOf(0) }
     var playbackError by remember { mutableStateOf<String?>(null) }
     var hudMessage by remember { mutableStateOf<String?>(null) }
     var isWebPlayerMode by remember { mutableStateOf(false) }
 
+    // Exit Confirmation Dialog State (Netflix TV style when pressing Back)
+    var showExitConfirmDialog by remember { mutableStateOf(false) }
+
     var currentPositionMs by remember { mutableLongStateOf(0L) }
     var durationMs by remember { mutableLongStateOf(0L) }
-    var bufferedPositionMs by remember { mutableLongStateOf(0L) }
 
-    // Exact millisecond timestamp preserved during Intelligent Failover hot-swaps
+    // Exact millisecond timestamp preserved during Intelligent Failover or Quality switches
     var failoverResumePositionMs by remember { mutableLongStateOf(-1L) }
 
-    // Adaptive Player Controls & TV D-Pad Rails
+    // Netflix TV OSD Controls State
     var showOsd by remember { mutableStateOf(true) }
     var osdHideCounter by remember { mutableIntStateOf(0) }
-    var showTopAudioAndServerBar by remember { mutableStateOf(false) } // TV D-Pad UP / Mobile top pill
-    var showBottomPartDrawer by remember { mutableStateOf(true) }     // TV D-Pad DOWN / Mobile swipe-up
-    var showTrickPlayPreview by remember { mutableStateOf(false) }     // TV D-Pad LEFT/RIGHT / Mobile scrub
+    var showTrickPlayPreview by remember { mutableStateOf(false) }
     var trickPlayPreviewMs by remember { mutableLongStateOf(0L) }
+
+    // Default to 1080p Full HD! User can switch anytime with 1 click.
+    var qualityPreset by remember { mutableStateOf(VideoQualityPreset.FULL_HD_1080P) }
 
     // Aspect Ratio Selector: 0 = FIT, 1 = FILL, 2 = ZOOM 16:9
     var resizeModeIndex by remember { mutableIntStateOf(0) }
     val resizeModeLabel = when (resizeModeIndex) {
-        1 -> "Stretch Fill"
+        1 -> "Fill Screen"
         2 -> "Cinema Zoom"
         else -> "Original Fit"
     }
 
     // Mobile Vertical Edge Gestures (Left: Brightness, Right: Volume)
     var screenBrightness by remember { mutableFloatStateOf(0.85f) }
-    var playerVolume by remember { mutableFloatStateOf(0.90f) }
+    var playerVolume by remember { mutableFloatStateOf(0.95f) }
 
-    // P2P WebRTC Mesh Telemetry
-    var activeP2pPeers by remember { mutableIntStateOf(184) }
-    var p2pOffloadedPercent by remember { mutableIntStateOf(68) }
-
-    // Silent, Textless Screensaver (Apple TV Minimalism):
-    // After 3 minutes (180s) of pause or inactivity, transitions cleanly to a pure #000000
-    // pitch-black / ultra-slow dim textless cinematic backdrop pan with zero text or widgets.
+    // Silent, Textless Screensaver after 3 minutes of pause
     var pauseElapsedSeconds by remember { mutableIntStateOf(0) }
     var isOledScreensaverActive by remember { mutableStateOf(false) }
     var savedScreensaverPositionMs by remember { mutableLongStateOf(0L) }
     var currentBackdropIndex by remember { mutableIntStateOf(0) }
 
+    // Explicit TV Remote FocusRequesters for seamless D-Pad navigation
+    val backButtonFocusRequester = remember { FocusRequester() }
     val playPauseFocusRequester = remember { FocusRequester() }
+    val rewindFocusRequester = remember { FocusRequester() }
+    val forwardFocusRequester = remember { FocusRequester() }
+    val qualityFocusRequester = remember { FocusRequester() }
+    val timelineFocusRequester = remember { FocusRequester() }
+    val firstMirrorFocusRequester = remember { FocusRequester() }
+    val keepWatchingFocusRequester = remember { FocusRequester() }
+
     val isLiveStream = episodeUrl.contains("live", ignoreCase = true) ||
         episodeUrl.startsWith("football://", ignoreCase = true) ||
         episodeUrl.contains("fixture=", ignoreCase = true)
@@ -342,43 +405,90 @@ fun VideoPlayerScreen(
         playbackError = null
         failoverResumePositionMs = -1L
         isOledScreensaverActive = false
+        showExitConfirmDialog = false
         pauseElapsedSeconds = 0
         viewModel.extractVideoUrl(episodeUrl)
     }
 
-    // Auto-hide HUD message after 3 seconds
+    // Whenever OSD appears, automatically focus the Play/Pause button so D-Pad works immediately!
+    LaunchedEffect(showOsd, showExitConfirmDialog, isOledScreensaverActive) {
+        if (showExitConfirmDialog) {
+            delay(60)
+            try {
+                keepWatchingFocusRequester.requestFocus()
+            } catch (_: Throwable) {}
+        } else if (showOsd && !isOledScreensaverActive) {
+            delay(60)
+            try {
+                playPauseFocusRequester.requestFocus()
+            } catch (_: Throwable) {}
+        }
+    }
+
+    // Auto-hide HUD message after 2.8 seconds
     LaunchedEffect(hudMessage) {
         if (hudMessage != null) {
-            delay(3000)
+            delay(2800)
             hudMessage = null
         }
     }
 
-    // Auto-hide trick-play frame preview after 1.8 seconds
+    // Auto-hide trick-play frame preview after 1.5 seconds
     LaunchedEffect(showTrickPlayPreview, trickPlayPreviewMs) {
         if (showTrickPlayPreview) {
-            delay(1800)
+            delay(1500)
             showTrickPlayPreview = false
         }
     }
 
-    // OSD auto-hide timer (5 seconds inactivity during active native playback)
-    LaunchedEffect(showOsd, osdHideCounter, isWebPlayerMode) {
-        if (showOsd && !isWebPlayerMode && !isOledScreensaverActive) {
-            delay(5000)
+    // OSD auto-hide timer (6 seconds of remote inactivity during playback)
+    LaunchedEffect(showOsd, osdHideCounter, isWebPlayerMode, isPlaying, showExitConfirmDialog) {
+        if (showOsd && isPlaying && !isWebPlayerMode && !isOledScreensaverActive && !showExitConfirmDialog) {
+            delay(6000)
             showOsd = false
-            showTopAudioAndServerBar = false
         }
     }
 
-    // Initialize ExoPlayer with SmartHlsDataSource
+    // TrackSelector configured to default to High-Bitrate 1080p Full HD!
+    val trackSelector = remember(context) {
+        DefaultTrackSelector(context).apply {
+            setParameters(
+                buildUponParameters()
+                    .setMinVideoSize(
+                        VideoQualityPreset.FULL_HD_1080P.minWidth,
+                        VideoQualityPreset.FULL_HD_1080P.minHeight
+                    )
+                    .setMaxVideoSize(
+                        VideoQualityPreset.FULL_HD_1080P.maxWidth,
+                        VideoQualityPreset.FULL_HD_1080P.maxHeight
+                    )
+                    .setMinVideoBitrate(VideoQualityPreset.FULL_HD_1080P.minBitrate)
+                    .setForceHighestSupportedBitrate(true)
+            )
+        }
+    }
+
+    // Apply quality preset whenever user switches resolution
+    LaunchedEffect(qualityPreset) {
+        try {
+            val paramsBuilder = trackSelector.buildUponParameters()
+                .setMinVideoSize(qualityPreset.minWidth, qualityPreset.minHeight)
+                .setMaxVideoSize(qualityPreset.maxWidth, qualityPreset.maxHeight)
+                .setMinVideoBitrate(qualityPreset.minBitrate)
+                .setMaxVideoBitrate(qualityPreset.maxBitrate)
+                .setForceHighestSupportedBitrate(qualityPreset == VideoQualityPreset.FULL_HD_1080P)
+            trackSelector.setParameters(paramsBuilder)
+        } catch (_: Throwable) {}
+    }
+
+    // Initialize ExoPlayer with fast-start buffer settings (0.5s start buffer)
     val exoPlayer = remember(context) {
         val loadControl = DefaultLoadControl.Builder()
             .setBufferDurationsMs(
-                10000, // minBufferMs: 10s
-                45000, // maxBufferMs: 45s
-                1000,  // bufferForPlaybackMs: 1.0s for ultra-fast startup
-                2000   // bufferForPlaybackAfterRebufferMs: 2.0s
+                8000,  // minBufferMs: 8s
+                40000, // maxBufferMs: 40s
+                500,   // bufferForPlaybackMs: 0.5s for instant startup!
+                1200   // bufferForPlaybackAfterRebufferMs: 1.2s for fast recovery
             )
             .setPrioritizeTimeOverSizeThresholds(true)
             .build()
@@ -389,14 +499,15 @@ fun VideoPlayerScreen(
 
         val httpDataSource = DefaultHttpDataSource.Factory()
             .setUserAgent("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36")
-            .setConnectTimeoutMs(8000)
-            .setReadTimeoutMs(10000)
+            .setConnectTimeoutMs(6000)
+            .setReadTimeoutMs(8000)
             .setAllowCrossProtocolRedirects(true)
 
         val smartDataSourceFactory = SmartHlsDataSource.Factory(httpDataSource)
         val mediaSourceFactory = DefaultMediaSourceFactory(smartDataSourceFactory)
 
         ExoPlayer.Builder(context, renderersFactory)
+            .setTrackSelector(trackSelector)
             .setLoadControl(loadControl)
             .setMediaSourceFactory(mediaSourceFactory)
             .setSeekBackIncrementMs(10000)
@@ -406,46 +517,6 @@ fun VideoPlayerScreen(
             }
     }
 
-    // Smart Audio Normalizer (Native DRC & Dialog Boost via LoudnessEnhancer / DynamicsProcessing)
-    var loudnessEnhancer by remember { mutableStateOf<LoudnessEnhancer?>(null) }
-    var dynamicsProcessing by remember { mutableStateOf<DynamicsProcessing?>(null) }
-
-    fun applySmartAudioNormalizer(audioSessionId: Int, enabled: Boolean) {
-        if (audioSessionId == C.AUDIO_SESSION_ID_UNSET || audioSessionId <= 0) return
-        try {
-            if (loudnessEnhancer == null) {
-                loudnessEnhancer = LoudnessEnhancer(audioSessionId)
-            }
-            loudnessEnhancer?.apply {
-                // +650 mB (+6.5 dB) dialog amplification when enabled
-                setTargetGain(if (enabled) 650 else 0)
-                setEnabled(enabled)
-            }
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P && dynamicsProcessing == null) {
-                val config = DynamicsProcessing.Config.Builder(
-                    DynamicsProcessing.VARIANT_FAVOR_FREQUENCY_RESOLUTION,
-                    2,
-                    true, 6,
-                    true, 6,
-                    true, 6,
-                    true
-                ).build()
-                dynamicsProcessing = DynamicsProcessing(0, audioSessionId, config).apply {
-                    setEnabled(enabled)
-                }
-            } else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
-                dynamicsProcessing?.setEnabled(enabled)
-            }
-        } catch (_: Throwable) {}
-    }
-
-    LaunchedEffect(drcDialogBoostEnabled) {
-        applySmartAudioNormalizer(exoPlayer.audioSessionId, drcDialogBoostEnabled)
-    }
-
-    // Silent, Zero-Friction Wake-Up helper:
-    // Tapping any remote button or touching the screen immediately dismisses the screensaver
-    // and resumes playback with zero confirmation prompts or text banners.
     val onUserInteractionOrWakeUp: () -> Boolean = {
         var consumedByScreensaver = false
         if (isOledScreensaverActive) {
@@ -463,37 +534,43 @@ fun VideoPlayerScreen(
         consumedByScreensaver
     }
 
-    // Intelligent Failover Trigger helper (preserves exact millisecond timestamp & checks multi-part segment)
+    // Intelligent Failover Trigger helper
     val triggerMillisecondFailover: (String) -> Boolean = { reason ->
         val current = viewModel.selectedSource.value
         val backup = viewModel.findIntelligentFailoverSource(current)
         if (backup != null) {
             val exactMs = exoPlayer.currentPosition.coerceAtLeast(currentPositionMs)
             failoverResumePositionMs = exactMs
-            hudMessage = "⚡ Auto-Failover ($reason) → ${backup.healthBadge} @ ${formatTimestamp(exactMs)}"
+            hudMessage = "Switched to faster mirror: ${backup.name}"
             viewModel.selectSource(backup)
             true
+        } else if (qualityPreset == VideoQualityPreset.FULL_HD_1080P) {
+            // If no other server exists and 1080p is stalling, step down to 720p automatically
+            qualityPreset = VideoQualityPreset.HD_720P
+            hudMessage = "Switched to 720p HD for smoother playback"
+            true
         } else {
-            val currentPart = current?.partNumber
-                ?: Regex("Part\\s*(\\d+)", RegexOption.IGNORE_CASE).find(current?.name.orEmpty())?.groupValues?.getOrNull(1)?.toIntOrNull()
-            if (currentPart != null) {
-                hudMessage = "⚠ Part $currentPart not on Backup Host — Keeping current sequence"
-            }
             false
         }
     }
 
-    // Continuous Buffer Stall Watchdog (hot-swaps if buffering stalls > 9 seconds)
-    LaunchedEffect(isBuffering, selectedSource, isWebPlayerMode) {
+    // Continuous Buffer Watchdog: tracks buffering seconds and auto-recovers if stalled > 7s
+    LaunchedEffect(isBuffering, selectedSource, isWebPlayerMode, isOledScreensaverActive) {
         if (isBuffering && !isWebPlayerMode && !isOledScreensaverActive) {
-            delay(9000)
-            if (isBuffering && exoPlayer.playbackState == Player.STATE_BUFFERING) {
-                triggerMillisecondFailover("Buffer Timeout")
+            bufferingSeconds = 0
+            while (isActive && isBuffering) {
+                delay(1000)
+                bufferingSeconds += 1
+                if (bufferingSeconds == 7 && exoPlayer.playbackState == Player.STATE_BUFFERING) {
+                    triggerMillisecondFailover("Buffer Stall")
+                }
             }
+        } else {
+            bufferingSeconds = 0
         }
     }
 
-    // Silent 3-Minute (180s) Pause / Idle Timeout Loop -> Pure #000000 Textless Screensaver
+    // Silent 3-Minute Pause Timeout -> Pure #000000 Textless Screensaver
     LaunchedEffect(isPlaying, isOledScreensaverActive, isWebPlayerMode) {
         while (isActive) {
             delay(1000)
@@ -512,7 +589,6 @@ fun VideoPlayerScreen(
         }
     }
 
-    // Cycle high-res backdrops slowly while OLED Screensaver is active
     LaunchedEffect(isOledScreensaverActive) {
         while (isActive && isOledScreensaverActive) {
             delay(18000)
@@ -523,25 +599,18 @@ fun VideoPlayerScreen(
     // Player event listener with intelligent failover & multi-part auto-advance
     DisposableEffect(exoPlayer) {
         val listener = object : Player.Listener {
-            override fun onAudioSessionIdChanged(audioSessionId: Int) {
-                applySmartAudioNormalizer(audioSessionId, drcDialogBoostEnabled)
-            }
-
             override fun onPlaybackStateChanged(playbackState: Int) {
                 isBuffering = playbackState == Player.STATE_BUFFERING
                 if (playbackState == Player.STATE_READY) {
                     playbackError = null
                     durationMs = exoPlayer.duration.coerceAtLeast(0L)
-                    applySmartAudioNormalizer(exoPlayer.audioSessionId, drcDialogBoostEnabled)
 
-                    // If we hot-swapped via Intelligent Failover, seek to the exact millisecond timestamp
                     if (failoverResumePositionMs > 0L && !isLiveStream) {
                         val targetMs = failoverResumePositionMs
                         failoverResumePositionMs = -1L
                         exoPlayer.seekTo(targetMs)
                     }
                 } else if (playbackState == Player.STATE_ENDED && !isLiveStream) {
-                    // Auto-advance to the next Part if this is a multi-part episode
                     val sources = viewModel.episodeSources.value
                     val current = viewModel.selectedSource.value
                     var advancedToNextPart = false
@@ -555,13 +624,12 @@ fun VideoPlayerScreen(
                                 p == currentPart + 1 && !it.name.contains("Web", ignoreCase = true)
                             }
                             if (nextPartSource != null) {
-                                hudMessage = "▶ Auto-playing ${nextPartSource.name}"
+                                hudMessage = "Playing ${nextPartSource.name}"
                                 viewModel.selectSource(nextPartSource)
                                 advancedToNextPart = true
                             }
                         }
                     }
-                    // Transition cleanly to silent textless screensaver when stream finishes if no next part exists
                     if (!advancedToNextPart) {
                         savedScreensaverPositionMs = 0L
                         isOledScreensaverActive = true
@@ -577,12 +645,10 @@ fun VideoPlayerScreen(
                 playbackError = error.message ?: "Stream error"
                 isBuffering = false
 
-                // 1. Intelligent Multi-Source Failover at exact millisecond timestamp
-                if (triggerMillisecondFailover("HTTP/Stream Error")) {
+                if (triggerMillisecondFailover("Stream Error")) {
                     return
                 }
 
-                // 2. Fallback to next native source
                 val sources = viewModel.episodeSources.value
                 val current = viewModel.selectedSource.value
                 if (sources.isNotEmpty() && current != null) {
@@ -590,12 +656,12 @@ fun VideoPlayerScreen(
                     val remaining = if (currentIdx >= 0) sources.drop(currentIdx + 1) else emptyList()
                     val nextNative = remaining.firstOrNull {
                         it.url.contains(".m3u8", ignoreCase = true) ||
-                                it.url.contains(".mp4", ignoreCase = true) ||
-                                it.url.contains("vcdnx.com", ignoreCase = true) ||
-                                it.url.contains("b-cdn.net", ignoreCase = true) ||
-                                it.url.contains("vibrantpulselab.com", ignoreCase = true) ||
-                                it.url.contains("live1channel", ignoreCase = true) ||
-                                it.url.contains("live2channel", ignoreCase = true)
+                            it.url.contains(".mp4", ignoreCase = true) ||
+                            it.url.contains("vcdnx.com", ignoreCase = true) ||
+                            it.url.contains("b-cdn.net", ignoreCase = true) ||
+                            it.url.contains("vibrantpulselab.com", ignoreCase = true) ||
+                            it.url.contains("live1channel", ignoreCase = true) ||
+                            it.url.contains("live2channel", ignoreCase = true)
                     } ?: remaining.firstOrNull()
 
                     if (nextNative != null) {
@@ -606,10 +672,9 @@ fun VideoPlayerScreen(
                     }
                 }
 
-                // 3. Client-Side Headless / WebView Resolver fallback
                 val webSource = sources.firstOrNull { it.url.contains("http") && !it.url.contains(".m3u8") && !it.url.contains("vcdnx.com") }
                 if (webSource != null) {
-                    hudMessage = "Switching to Client-Side Web Resolver"
+                    hudMessage = "Switching to Web Stream"
                     viewModel.selectSource(webSource)
                     isWebPlayerMode = true
                 }
@@ -619,10 +684,6 @@ fun VideoPlayerScreen(
         exoPlayer.addListener(listener)
 
         onDispose {
-            try {
-                loudnessEnhancer?.release()
-                dynamicsProcessing?.release()
-            } catch (_: Throwable) {}
             exoPlayer.removeListener(listener)
             val pos = exoPlayer.currentPosition
             val dur = exoPlayer.duration
@@ -639,16 +700,16 @@ fun VideoPlayerScreen(
         val url = (videoUrlState as? UiState.Success)?.data
         if (!url.isNullOrBlank()) {
             val isDirectStream = url.startsWith("file://") ||
-                    url.contains(".m3u8", ignoreCase = true) ||
-                    url.contains(".mp4", ignoreCase = true) ||
-                    url.contains(".mpd", ignoreCase = true) ||
-                    url.contains("vcdnx.com", ignoreCase = true) ||
-                    url.contains("b-cdn.net", ignoreCase = true) ||
-                    url.contains("vibrantpulselab.com", ignoreCase = true) ||
-                    url.contains("vimeocdn.com", ignoreCase = true) ||
-                    url.contains("okcdn.ru", ignoreCase = true) ||
-                    url.contains("live1channel", ignoreCase = true) ||
-                    url.contains("live2channel", ignoreCase = true)
+                url.contains(".m3u8", ignoreCase = true) ||
+                url.contains(".mp4", ignoreCase = true) ||
+                url.contains(".mpd", ignoreCase = true) ||
+                url.contains("vcdnx.com", ignoreCase = true) ||
+                url.contains("b-cdn.net", ignoreCase = true) ||
+                url.contains("vibrantpulselab.com", ignoreCase = true) ||
+                url.contains("vimeocdn.com", ignoreCase = true) ||
+                url.contains("okcdn.ru", ignoreCase = true) ||
+                url.contains("live1channel", ignoreCase = true) ||
+                url.contains("live2channel", ignoreCase = true)
 
             if (!isDirectStream) {
                 exoPlayer.pause()
@@ -691,7 +752,7 @@ fun VideoPlayerScreen(
                 val savedPos = viewModel.getSavedPosition(episodeUrl)
                 if (savedPos > 5000L) {
                     exoPlayer.seekTo(savedPos)
-                    hudMessage = "Resuming from ${formatTimestamp(savedPos)}"
+                    hudMessage = "Resumed from ${formatTimestamp(savedPos)}"
                 }
             }
 
@@ -699,128 +760,148 @@ fun VideoPlayerScreen(
         }
     }
 
-    // Periodic time, watch progress & P2P mesh telemetry update
+    // Periodic time & watch progress update
     LaunchedEffect(exoPlayer) {
         while (isActive) {
             if (exoPlayer.isPlaying) {
                 currentPositionMs = exoPlayer.currentPosition.coerceAtLeast(0L)
                 durationMs = exoPlayer.duration.coerceAtLeast(0L)
-                bufferedPositionMs = exoPlayer.bufferedPosition.coerceAtLeast(0L)
                 viewModel.savePlaybackProgress(episodeUrl, currentPositionMs, durationMs)
-                activeP2pPeers = (160 + ((currentPositionMs / 1000) % 95)).toInt()
             }
             delay(500)
         }
     }
 
-    // TV Remote D-Pad OSD & Zero-Friction Wake-Up Interception
-    val handleKeyEvent: (androidx.compose.ui.input.key.KeyEvent) -> Boolean = { keyEvent ->
+    // Back button interception:
+    // 1. If screensaver is active -> wake up immediately
+    // 2. If exit dialog is already open -> dismiss exit dialog
+    // 3. Otherwise -> open the Netflix-style "Exit Video?" confirmation dialog instead of abruptly quitting!
+    BackHandler {
+        when {
+            isOledScreensaverActive -> onUserInteractionOrWakeUp()
+            showExitConfirmDialog -> showExitConfirmDialog = false
+            else -> {
+                showExitConfirmDialog = true
+            }
+        }
+    }
+
+    // TV Remote D-Pad Key Handling:
+    // CRITICAL FIX: When showOsd is TRUE, NEVER consume DPAD_UP, DPAD_DOWN, DPAD_LEFT, DPAD_RIGHT, or ENTER!
+    // Let Compose's focus system move naturally between Play/Pause, Rewind, Forward, Quality, and Stream Mirrors!
+    val handleKeyEvent: (KeyEvent) -> Boolean = { keyEvent ->
         val event = keyEvent.nativeKeyEvent
         if (event.action == android.view.KeyEvent.ACTION_DOWN) {
-            // Zero-Friction Wake-Up: Any remote key immediately wakes from OLED Screensaver & resumes
             if (onUserInteractionOrWakeUp()) {
                 true
-            } else {
+            } else if (showExitConfirmDialog) {
+                false
+            } else if (!showOsd) {
+                // Controls are currently hidden: first D-Pad press reveals OSD and performs quick action
                 when (event.keyCode) {
                     android.view.KeyEvent.KEYCODE_DPAD_CENTER,
                     android.view.KeyEvent.KEYCODE_ENTER,
                     android.view.KeyEvent.KEYCODE_NUMPAD_ENTER -> {
-                        if (!showOsd) {
-                            if (exoPlayer.isPlaying) {
-                                exoPlayer.pause()
-                            } else {
-                                exoPlayer.play()
-                            }
-                            showOsd = true
-                            osdHideCounter++
-                            true
-                        } else {
-                            false
-                        }
+                        if (exoPlayer.isPlaying) exoPlayer.pause() else exoPlayer.play()
+                        showOsd = true
+                        osdHideCounter++
+                        true
                     }
-
-                    // TV D-Pad Left: Trick-Play visual thumbnail scrubber (-10s)
                     android.view.KeyEvent.KEYCODE_DPAD_LEFT -> {
-                        if (!showOsd && !isLiveStream) {
+                        if (!isLiveStream) {
                             val newPos = (exoPlayer.currentPosition - 10000L).coerceAtLeast(0L)
                             exoPlayer.seekTo(newPos)
+                            currentPositionMs = newPos
                             trickPlayPreviewMs = newPos
                             showTrickPlayPreview = true
-                            hudMessage = "⏪ Trick-Play -10s (${formatTimestamp(newPos)})"
-                            true
-                        } else {
-                            false
+                            hudMessage = "⏪ -10s (${formatTimestamp(newPos)})"
                         }
+                        showOsd = true
+                        osdHideCounter++
+                        true
                     }
-
-                    // TV D-Pad Right: Trick-Play visual thumbnail scrubber (+10s)
                     android.view.KeyEvent.KEYCODE_DPAD_RIGHT -> {
-                        if (!showOsd && !isLiveStream) {
+                        if (!isLiveStream) {
                             val dur = exoPlayer.duration.coerceAtLeast(0L)
                             val target = if (dur > 0L) (exoPlayer.currentPosition + 10000L).coerceAtMost(dur) else exoPlayer.currentPosition + 10000L
                             exoPlayer.seekTo(target)
+                            currentPositionMs = target
                             trickPlayPreviewMs = target
                             showTrickPlayPreview = true
-                            hudMessage = "⏩ Trick-Play +10s (${formatTimestamp(target)})"
-                            true
-                        } else {
-                            false
+                            hudMessage = "⏩ +10s (${formatTimestamp(target)})"
                         }
-                    }
-
-                    // TV D-Pad Up: Instant Audio Boost (DRC) toggles, Server Switcher & Aspect Ratio Selector
-                    android.view.KeyEvent.KEYCODE_DPAD_UP -> {
                         showOsd = true
-                        showTopAudioAndServerBar = true
                         osdHideCounter++
-                        hudMessage = "⬆ Audio DRC, P2P Mesh & Aspect Controls"
                         true
                     }
-
-                    // TV D-Pad Down: Horizontal overlay rail of Parts, Episodes & Servers over live playback
+                    android.view.KeyEvent.KEYCODE_DPAD_UP,
                     android.view.KeyEvent.KEYCODE_DPAD_DOWN -> {
                         showOsd = true
-                        showBottomPartDrawer = true
                         osdHideCounter++
-                        hudMessage = "⬇ Parts, Mirrors & Health Badges Rail"
                         true
                     }
-
                     android.view.KeyEvent.KEYCODE_MEDIA_PLAY_PAUSE -> {
                         if (exoPlayer.isPlaying) exoPlayer.pause() else exoPlayer.play()
                         true
                     }
-
                     android.view.KeyEvent.KEYCODE_MEDIA_PLAY -> {
                         exoPlayer.play()
                         true
                     }
-
                     android.view.KeyEvent.KEYCODE_MEDIA_PAUSE -> {
                         exoPlayer.pause()
                         true
                     }
-
                     android.view.KeyEvent.KEYCODE_MEDIA_FAST_FORWARD -> {
                         if (!isLiveStream) {
-                            val newPos = exoPlayer.currentPosition + 15000L
+                            val newPos = exoPlayer.currentPosition + 10000L
                             exoPlayer.seekTo(newPos)
-                            trickPlayPreviewMs = newPos
-                            showTrickPlayPreview = true
+                            currentPositionMs = newPos
                         }
                         true
                     }
-
                     android.view.KeyEvent.KEYCODE_MEDIA_REWIND -> {
                         if (!isLiveStream) {
-                            val newPos = (exoPlayer.currentPosition - 15000L).coerceAtLeast(0L)
+                            val newPos = (exoPlayer.currentPosition - 10000L).coerceAtLeast(0L)
                             exoPlayer.seekTo(newPos)
-                            trickPlayPreviewMs = newPos
-                            showTrickPlayPreview = true
+                            currentPositionMs = newPos
                         }
                         true
                     }
-
+                    else -> false
+                }
+            } else {
+                // Controls ARE visible: reset inactivity timer and return FALSE so D-Pad moves focus!
+                osdHideCounter++
+                when (event.keyCode) {
+                    android.view.KeyEvent.KEYCODE_MEDIA_PLAY_PAUSE -> {
+                        if (exoPlayer.isPlaying) exoPlayer.pause() else exoPlayer.play()
+                        true
+                    }
+                    android.view.KeyEvent.KEYCODE_MEDIA_PLAY -> {
+                        exoPlayer.play()
+                        true
+                    }
+                    android.view.KeyEvent.KEYCODE_MEDIA_PAUSE -> {
+                        exoPlayer.pause()
+                        true
+                    }
+                    android.view.KeyEvent.KEYCODE_MEDIA_FAST_FORWARD -> {
+                        if (!isLiveStream) {
+                            val newPos = exoPlayer.currentPosition + 10000L
+                            exoPlayer.seekTo(newPos)
+                            currentPositionMs = newPos
+                        }
+                        true
+                    }
+                    android.view.KeyEvent.KEYCODE_MEDIA_REWIND -> {
+                        if (!isLiveStream) {
+                            val newPos = (exoPlayer.currentPosition - 10000L).coerceAtLeast(0L)
+                            exoPlayer.seekTo(newPos)
+                            currentPositionMs = newPos
+                        }
+                        true
+                    }
                     else -> false
                 }
             }
@@ -829,23 +910,14 @@ fun VideoPlayerScreen(
         }
     }
 
-    BackHandler {
-        if (isOledScreensaverActive) {
-            onUserInteractionOrWakeUp()
-        } else {
-            onBack()
-        }
-    }
-
     Box(
         modifier = Modifier
             .fillMaxSize()
             .background(Color.Black)
-            .focusable()
-            .onKeyEvent(handleKeyEvent)
-            // Mobile Touch Gestures: Single tap OSD/Wake, Double-tap 10s skip, Horizontal scrub, Vertical Brightness/Volume, Swipe-up Part Drawer
-            .pointerInput(isWebPlayerMode, isLiveStream, isOledScreensaverActive) {
-                if (!isWebPlayerMode) {
+            .onPreviewKeyEvent(handleKeyEvent)
+            .focusable(enabled = !showOsd && !showExitConfirmDialog)
+            .pointerInput(isWebPlayerMode, isLiveStream, isOledScreensaverActive, showExitConfirmDialog) {
+                if (!isWebPlayerMode && !showExitConfirmDialog) {
                     detectTapGestures(
                         onTap = {
                             if (!onUserInteractionOrWakeUp()) {
@@ -859,30 +931,31 @@ fun VideoPlayerScreen(
                                 if (isLeftHalf) {
                                     val newPos = (exoPlayer.currentPosition - 10000L).coerceAtLeast(0L)
                                     exoPlayer.seekTo(newPos)
+                                    currentPositionMs = newPos
                                     trickPlayPreviewMs = newPos
                                     showTrickPlayPreview = true
-                                    hudMessage = "⏪ Double-Tap -10s (${formatTimestamp(newPos)})"
+                                    hudMessage = "⏪ -10s (${formatTimestamp(newPos)})"
                                 } else {
                                     val dur = exoPlayer.duration.coerceAtLeast(0L)
                                     val target = if (dur > 0L) (exoPlayer.currentPosition + 10000L).coerceAtMost(dur) else exoPlayer.currentPosition + 10000L
                                     exoPlayer.seekTo(target)
+                                    currentPositionMs = target
                                     trickPlayPreviewMs = target
                                     showTrickPlayPreview = true
-                                    hudMessage = "⏩ Double-Tap +10s (${formatTimestamp(target)})"
+                                    hudMessage = "⏩ +10s (${formatTimestamp(target)})"
                                 }
                             }
                         }
                     )
                 }
             }
-            .pointerInput(isWebPlayerMode, isLiveStream, isOledScreensaverActive) {
-                if (!isWebPlayerMode) {
+            .pointerInput(isWebPlayerMode, isLiveStream, isOledScreensaverActive, showExitConfirmDialog) {
+                if (!isWebPlayerMode && !showExitConfirmDialog) {
                     detectDragGestures { change, dragAmount ->
                         if (onUserInteractionOrWakeUp()) return@detectDragGestures
                         val dx = dragAmount.x
                         val dy = dragAmount.y
                         if (abs(dx) > abs(dy) && abs(dx) > 6f && !isLiveStream) {
-                            // Horizontal swipe scrubbing with live Trick-Play preview
                             val deltaMs = (dx * 120f).toLong()
                             val dur = exoPlayer.duration.coerceAtLeast(3600_000L)
                             val target = (exoPlayer.currentPosition + deltaMs).coerceIn(0L, dur)
@@ -890,16 +963,9 @@ fun VideoPlayerScreen(
                             currentPositionMs = target
                             trickPlayPreviewMs = target
                             showTrickPlayPreview = true
-                            hudMessage = "🎯 Scrubbing: ${formatTimestamp(target)}"
                         } else if (abs(dy) > abs(dx) && abs(dy) > 6f) {
                             val xPos = change.position.x
-                            if (dy < -18f && change.position.y > size.height * 0.72f) {
-                                // Swipe-up from bottom edge opens Part & Server Selector
-                                showOsd = true
-                                showBottomPartDrawer = true
-                                hudMessage = "⬆ Part & Mirror Selector"
-                            } else if (xPos < size.width * 0.35f) {
-                                // Left Vertical Edge: Screen Brightness Control
+                            if (xPos < size.width * 0.35f) {
                                 screenBrightness = (screenBrightness - dy / 600f).coerceIn(0.10f, 1.0f)
                                 (context as? Activity)?.window?.let { win ->
                                     val lp = win.attributes
@@ -908,7 +974,6 @@ fun VideoPlayerScreen(
                                 }
                                 hudMessage = "☀ Brightness: ${(screenBrightness * 100).roundToInt()}%"
                             } else if (xPos > size.width * 0.65f) {
-                                // Right Vertical Edge: Volume Control
                                 playerVolume = (playerVolume - dy / 600f).coerceIn(0.0f, 1.0f)
                                 exoPlayer.volume = playerVolume
                                 try {
@@ -926,27 +991,16 @@ fun VideoPlayerScreen(
             }
             .testTag("video_player_root")
     ) {
-        // Ambient OLED Letterbox Edge Glow (Dynamic edge backlight on mobile/TV)
-        Box(
-            modifier = Modifier
-                .fillMaxSize()
-                .background(
-                    Brush.radialGradient(
-                        colors = listOf(
-                            Color(0x28FF2A54),
-                            Color(0x1400E5FF),
-                            Color.Black
-                        )
-                    )
-                )
-        )
-
         // Video Rendering Layer
+        var activeWebView by remember { mutableStateOf<WebView?>(null) }
         if (isWebPlayerMode) {
             val currentWebUrl = (videoUrlState as? UiState.Success)?.data ?: episodeUrl
             AndroidView(
                 factory = { ctx ->
                     WebView(ctx).apply {
+                        activeWebView = this
+                        isFocusable = false
+                        isFocusableInTouchMode = false
                         layoutParams = ViewGroup.LayoutParams(
                             ViewGroup.LayoutParams.MATCH_PARENT,
                             ViewGroup.LayoutParams.MATCH_PARENT
@@ -961,18 +1015,92 @@ fun VideoPlayerScreen(
                             loadWithOverviewMode = true
                             userAgentString = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36"
                             mixedContentMode = WebSettings.MIXED_CONTENT_ALWAYS_ALLOW
+                            setSupportMultipleWindows(true)
+                            javaScriptCanOpenWindowsAutomatically = false
                         }
-                        webChromeClient = WebChromeClient()
-                        webViewClient = WebViewClient()
+                        webChromeClient = object : WebChromeClient() {
+                            override fun onCreateWindow(
+                                view: WebView?,
+                                isDialog: Boolean,
+                                isUserGesture: Boolean,
+                                resultMsg: android.os.Message?
+                            ): Boolean = false
+                        }
+                        webViewClient = object : WebViewClient() {
+                            override fun shouldOverrideUrlLoading(
+                                view: WebView?,
+                                request: WebResourceRequest?
+                            ): Boolean {
+                                val reqUrl = request?.url?.toString().orEmpty()
+                                val allowed = reqUrl.contains("embed.st", ignoreCase = true) ||
+                                    reqUrl.contains("taifood-blog.asia", ignoreCase = true) ||
+                                    reqUrl.contains("streamed.st", ignoreCase = true) ||
+                                    reqUrl.contains("ppv.st", ignoreCase = true) ||
+                                    reqUrl.contains("1tamilcrow", ignoreCase = true) ||
+                                    reqUrl.contains("tamildhool", ignoreCase = true) ||
+                                    reqUrl.contains("dailymotion", ignoreCase = true) ||
+                                    reqUrl.contains("vimeo", ignoreCase = true) ||
+                                    reqUrl.contains("ok.ru", ignoreCase = true)
+                                return if (request?.isForMainFrame == true && !allowed) true else false
+                            }
+
+                            override fun shouldInterceptRequest(
+                                view: WebView?,
+                                request: WebResourceRequest?
+                            ): WebResourceResponse? {
+                                val reqUrl = request?.url?.toString().orEmpty().lowercase(Locale.US)
+                                val isAdScript = reqUrl.contains("acscdn.com") ||
+                                    reqUrl.contains("aclib") ||
+                                    reqUrl.contains("optimserve") ||
+                                    reqUrl.contains("wpnxiswpuyrfn") ||
+                                    reqUrl.contains("histats") ||
+                                    reqUrl.contains("doubleclick") ||
+                                    reqUrl.contains("googlesyndication") ||
+                                    reqUrl.contains("popads") ||
+                                    reqUrl.contains("adsterra") ||
+                                    reqUrl.contains("exoclick") ||
+                                    reqUrl.endsWith("/ad.html") ||
+                                    reqUrl.endsWith("/d3.php")
+                                if (isAdScript) {
+                                    return WebResourceResponse(
+                                        "application/javascript",
+                                        "UTF-8",
+                                        ByteArrayInputStream(ByteArray(0))
+                                    )
+                                }
+                                return super.shouldInterceptRequest(view, request)
+                            }
+
+                            override fun onPageFinished(view: WebView?, url: String?) {
+                                super.onPageFinished(view, url)
+                                view?.evaluateJavascript(
+                                    """
+                                    (function() {
+                                        var sad = document.getElementById('sad');
+                                        if (sad) sad.remove();
+                                        window.open = function() { return null; };
+                                        var v = document.querySelector('video');
+                                        if (v) { v.muted = false; v.play().catch(function(){}); }
+                                    })();
+                                    """.trimIndent(),
+                                    null
+                                )
+                            }
+                        }
                         loadWebStream(this, currentWebUrl)
                     }
                 },
                 update = { webView ->
+                    activeWebView = webView
+                    webView.isFocusable = false
+                    webView.isFocusableInTouchMode = false
                     if (webView.tag != currentWebUrl) {
                         loadWebStream(webView, currentWebUrl)
                     }
                 },
-                modifier = Modifier.fillMaxSize()
+                modifier = Modifier
+                    .fillMaxSize()
+                    .focusProperties { canFocus = false }
             )
         } else {
             val exoResizeMode = when (resizeModeIndex) {
@@ -986,6 +1114,8 @@ fun VideoPlayerScreen(
                         player = exoPlayer
                         useController = false
                         resizeMode = exoResizeMode
+                        isFocusable = false
+                        isFocusableInTouchMode = false
                         layoutParams = FrameLayout.LayoutParams(
                             ViewGroup.LayoutParams.MATCH_PARENT,
                             ViewGroup.LayoutParams.MATCH_PARENT
@@ -1010,106 +1140,100 @@ fun VideoPlayerScreen(
                 .padding(top = 24.dp)
         ) {
             Surface(
-                color = Color(0xEE0D111A),
-                shape = RoundedCornerShape(24.dp),
-                border = BorderStroke(1.dp, Color(0xFFFF2A54)),
-                shadowElevation = 8.dp
+                color = Color(0xEE141824),
+                shape = RoundedCornerShape(50),
+                border = BorderStroke(1.5.dp, Color.White.copy(alpha = 0.25f)),
+                shadowElevation = 10.dp
             ) {
                 Text(
                     text = hudMessage.orEmpty(),
                     color = Color.White,
-                    fontSize = 13.sp,
-                    fontWeight = FontWeight.SemiBold,
-                    modifier = Modifier.padding(horizontal = 18.dp, vertical = 8.dp)
+                    fontSize = 14.sp,
+                    fontWeight = FontWeight.Bold,
+                    modifier = Modifier.padding(horizontal = 22.dp, vertical = 10.dp)
                 )
             }
         }
 
-        // Trick-Play Visual Thumbnail Scrubber Overlay (Left/Right D-Pad or Horizontal Swipe)
+        // Trick-Play Visual Scrubber Overlay
         AnimatedVisibility(
             visible = showTrickPlayPreview && !isLiveStream,
-            enter = fadeIn(tween(120)),
+            enter = fadeIn(tween(100)),
             exit = fadeOut(tween(150)),
             modifier = Modifier
                 .align(Alignment.Center)
-                .padding(bottom = 80.dp)
+                .padding(bottom = 90.dp)
         ) {
             Surface(
-                color = Color(0xEE0B0E17),
-                shape = RoundedCornerShape(14.dp),
-                border = BorderStroke(1.5.dp, Color(0xFF00E5FF))
+                color = Color(0xEE0D111A),
+                shape = RoundedCornerShape(16.dp),
+                border = BorderStroke(2.dp, Color.White)
             ) {
                 Column(
                     horizontalAlignment = Alignment.CenterHorizontally,
-                    modifier = Modifier.padding(10.dp)
+                    modifier = Modifier.padding(12.dp)
                 ) {
-                    Box(
-                        modifier = Modifier
-                            .size(width = 168.dp, height = 94.dp)
-                            .clip(RoundedCornerShape(8.dp))
-                            .background(Color(0xFF161B2A)),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        AsyncImage(
-                            model = MultiSourceEngine.OLED_CINEMATIC_BACKDROPS[((trickPlayPreviewMs / 15000L) % MultiSourceEngine.OLED_CINEMATIC_BACKDROPS.size).toInt().coerceAtLeast(0)],
-                            contentDescription = "Trick-Play Frame Preview",
-                            contentScale = ContentScale.Crop,
-                            modifier = Modifier.fillMaxSize()
-                        )
-                        Surface(
-                            color = Color(0xAA000000),
-                            shape = RoundedCornerShape(6.dp)
-                        ) {
-                            Text(
-                                text = "FRAME SEEK",
-                                color = Color(0xFF00E5FF),
-                                fontSize = 9.sp,
-                                fontWeight = FontWeight.ExtraBold,
-                                modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
-                            )
-                        }
-                    }
-                    Spacer(modifier = Modifier.height(6.dp))
                     Text(
                         text = formatTimestamp(trickPlayPreviewMs),
                         color = Color.White,
-                        fontSize = 14.sp,
-                        fontWeight = FontWeight.ExtraBold
+                        fontSize = 20.sp,
+                        fontWeight = FontWeight.Black
                     )
                 }
             }
         }
 
-        // Center Loading / Buffering Spinner
+        // Center Loading / Buffering Spinner with Smart Anti-Buffer Recovery Buttons
         if (isBuffering && playbackError == null && !isWebPlayerMode && !isOledScreensaverActive) {
             Box(
                 modifier = Modifier.fillMaxSize(),
                 contentAlignment = Alignment.Center
             ) {
-                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                Column(
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    modifier = Modifier
+                        .background(Color(0xBB000000), RoundedCornerShape(20.dp))
+                        .padding(horizontal = 28.dp, vertical = 22.dp)
+                ) {
                     CircularProgressIndicator(
-                        color = Color(0xFFFF2A54),
+                        color = Color(0xFFE50914),
                         strokeWidth = 4.dp,
-                        modifier = Modifier.size(52.dp)
+                        modifier = Modifier.size(50.dp)
                     )
                     Spacer(modifier = Modifier.height(14.dp))
                     Text(
                         text = if (videoUrlState is UiState.Loading) {
-                            "Simultaneous Multi-Source Resolver Active..."
+                            "Finding Fastest ${qualityPreset.badge} Stream..."
                         } else {
-                            "Buffering Ad-Free 1080p Stream..."
+                            "Loading ${qualityPreset.badge} Video..."
                         },
-                        color = Color.White.copy(alpha = 0.9f),
-                        fontSize = 14.sp,
-                        fontWeight = FontWeight.SemiBold
+                        color = Color.White,
+                        fontSize = 15.sp,
+                        fontWeight = FontWeight.Bold
                     )
-                    selectedSource?.let { src ->
-                        Spacer(modifier = Modifier.height(4.dp))
-                        Text(
-                            text = "${src.healthBadge} • ${src.hostPortal}",
-                            color = Color(0xFF00E5FF),
-                            fontSize = 12.sp
-                        )
+
+                    if (bufferingSeconds >= 3) {
+                        Spacer(modifier = Modifier.height(14.dp))
+                        Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                            TvControlPillButton(
+                                label = "Switch Mirror",
+                                icon = Icons.Filled.SwapHoriz,
+                                isPrimary = true,
+                                onClick = {
+                                    triggerMillisecondFailover("Manual Switch")
+                                }
+                            )
+                            if (qualityPreset != VideoQualityPreset.SMOOTH_480P) {
+                                TvControlPillButton(
+                                    label = "Switch to 480p Fast",
+                                    icon = Icons.Filled.Speed,
+                                    onClick = {
+                                        qualityPreset = VideoQualityPreset.SMOOTH_480P
+                                        hudMessage = "Switched to 480p Fast (No-Buffer Mode)"
+                                    }
+                                )
+                            }
+                        }
                     }
                 }
             }
@@ -1118,12 +1242,12 @@ fun VideoPlayerScreen(
         // Center Playback Error Card with Immediate Server Switcher
         if (playbackError != null && !isBuffering && !isWebPlayerMode && !isOledScreensaverActive) {
             Surface(
-                color = Color(0xEE160B12),
-                shape = RoundedCornerShape(16.dp),
-                border = BorderStroke(1.5.dp, Color(0xFFFF2A54)),
+                color = Color(0xF212151E),
+                shape = RoundedCornerShape(20.dp),
+                border = BorderStroke(1.5.dp, Color.White.copy(alpha = 0.25f)),
                 modifier = Modifier
                     .align(Alignment.Center)
-                    .widthIn(max = 440.dp)
+                    .widthIn(max = 460.dp)
                     .padding(24.dp)
             ) {
                 Column(
@@ -1132,33 +1256,36 @@ fun VideoPlayerScreen(
                 ) {
                     Icon(
                         imageVector = Icons.Filled.SwapHoriz,
-                        contentDescription = "Failover Notice",
-                        tint = Color(0xFFFFC857),
+                        contentDescription = "Switch Server",
+                        tint = Color(0xFFE50914),
                         modifier = Modifier.size(44.dp)
                     )
                     Spacer(modifier = Modifier.height(10.dp))
                     Text(
-                        text = "Multi-Source Failover Ready",
+                        text = "Server Busy — Try Backup Mirror",
                         color = Color.White,
-                        fontSize = 17.sp,
+                        fontSize = 18.sp,
                         fontWeight = FontWeight.Bold
                     )
                     Spacer(modifier = Modifier.height(6.dp))
                     Text(
-                        text = playbackError ?: "Hot-swapping to verified backup mirror...",
-                        color = Color.White.copy(alpha = 0.7f),
-                        fontSize = 12.5.sp,
+                        text = "Select another stream mirror below to continue watching immediately.",
+                        color = Color.White.copy(alpha = 0.75f),
+                        fontSize = 13.sp,
                         textAlign = TextAlign.Center
                     )
                     Spacer(modifier = Modifier.height(18.dp))
                     Row(
-                        horizontalArrangement = Arrangement.spacedBy(10.dp),
+                        horizontalArrangement = Arrangement.spacedBy(12.dp),
                         modifier = Modifier.fillMaxWidth(),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Button(
+                        TvControlPillButton(
+                            label = "Try Next Server",
+                            icon = Icons.Filled.PlayArrow,
+                            isPrimary = true,
                             onClick = {
-                                if (!triggerMillisecondFailover("Manual Hot-Swap")) {
+                                if (!triggerMillisecondFailover("Manual Switch")) {
                                     val current = selectedSource
                                     val next = episodeSources.firstOrNull { it.url != current?.url } ?: episodeSources.firstOrNull()
                                     if (next != null) {
@@ -1170,553 +1297,537 @@ fun VideoPlayerScreen(
                                     }
                                 }
                             },
-                            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFFF2A54)),
-                            shape = RoundedCornerShape(8.dp),
                             modifier = Modifier.weight(1f)
-                        ) {
-                            Text("Hot-Swap Server", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 12.sp)
-                        }
-                        Button(
-                            onClick = {
-                                exoPlayer.pause()
-                                isWebPlayerMode = true
-                            },
-                            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF2B2B2B)),
-                            shape = RoundedCornerShape(8.dp),
+                        )
+                        TvControlPillButton(
+                            label = "Exit Video",
+                            icon = Icons.AutoMirrored.Filled.ArrowBack,
+                            onClick = onBack,
                             modifier = Modifier.weight(1f)
-                        ) {
-                            Text("Headless Web", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 12.sp)
-                        }
-                    }
-                    Spacer(modifier = Modifier.height(8.dp))
-                    OutlinedButton(
-                        onClick = onBack,
-                        shape = RoundedCornerShape(8.dp),
-                        border = BorderStroke(1.dp, Color.White.copy(alpha = 0.4f)),
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
-                        Text("Go Back", color = Color.White, fontSize = 12.sp)
+                        )
                     }
                 }
             }
         }
 
-        // TV & Mobile OSD Overlay
+        // Netflix TV OSD Overlay (Unobstructed D-Pad Focus Graph!)
         AnimatedVisibility(
-            visible = showOsd && !isOledScreensaverActive,
-            enter = fadeIn(tween(200)),
-            exit = fadeOut(tween(200)),
+            visible = showOsd && !isOledScreensaverActive && !showExitConfirmDialog,
+            enter = fadeIn(tween(180)),
+            exit = fadeOut(tween(180)),
             modifier = Modifier.fillMaxSize()
         ) {
             Box(
                 modifier = Modifier
                     .fillMaxSize()
-                    .then(
-                        if (!isWebPlayerMode) {
-                            Modifier.background(
-                                Brush.verticalGradient(
-                                    listOf(
-                                        Color(0xE605070C),
-                                        Color.Transparent,
-                                        Color(0xF205070C)
-                                    )
-                                )
+                    .background(
+                        Brush.verticalGradient(
+                            listOf(
+                                Color(0xCC000000),
+                                Color(0x22000000),
+                                Color(0xEE000000)
                             )
-                        } else {
-                            Modifier
-                        }
+                        )
                     )
-                    .padding(18.dp)
+                    .padding(horizontal = 28.dp, vertical = 22.dp)
             ) {
-                // Top Bar + Optional TV D-Pad UP Quick Audio/Aspect/P2P Bar
-                Column(
+                // Top Header Bar: Back Button + Title + Current Quality Badge
+                Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .align(Alignment.TopStart)
+                        .align(Alignment.TopStart),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween
                 ) {
                     Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .background(
-                                if (isWebPlayerMode) Color(0xCC090B10) else Color.Transparent,
-                                RoundedCornerShape(12.dp)
-                            )
-                            .padding(horizontal = if (isWebPlayerMode) 10.dp else 0.dp, vertical = if (isWebPlayerMode) 6.dp else 0.dp),
-                        verticalAlignment = Alignment.CenterVertically
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier.weight(1f)
                     ) {
                         TvPlayerIconButton(
                             icon = Icons.AutoMirrored.Filled.ArrowBack,
-                            contentDescription = "Exit Player",
-                            onClick = onBack
+                            contentDescription = "Back",
+                            onClick = { showExitConfirmDialog = true },
+                            modifier = Modifier
+                                .focusRequester(backButtonFocusRequester)
+                                .focusProperties {
+                                    down = if (episodeSources.isNotEmpty()) firstMirrorFocusRequester else playPauseFocusRequester
+                                }
+                                .testTag("player_back_button")
                         )
 
-                        Spacer(modifier = Modifier.width(12.dp))
+                        Spacer(modifier = Modifier.width(14.dp))
 
-                        Column(modifier = Modifier.weight(1f)) {
+                        Column {
                             Text(
-                                text = episodeTitle.ifBlank { "Live Stream • HD" },
+                                text = episodeTitle.ifBlank { "Now Playing" },
                                 color = Color.White,
-                                fontSize = 15.sp,
+                                fontSize = 18.sp,
                                 fontWeight = FontWeight.Bold,
                                 maxLines = 1,
                                 overflow = TextOverflow.Ellipsis
                             )
+                            Spacer(modifier = Modifier.height(2.dp))
                             Row(
                                 verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.spacedBy(6.dp)
+                                horizontalArrangement = Arrangement.spacedBy(8.dp)
                             ) {
                                 Surface(
-                                    color = Color(0xFFFF2A54),
+                                    color = Color(0xFFE50914),
                                     shape = RoundedCornerShape(4.dp)
                                 ) {
                                     Text(
-                                        text = if (isLiveStream) "24/7 LIVE" else (selectedSource?.resolution ?: "1080p HD"),
+                                        text = if (isLiveStream) "LIVE HD" else qualityPreset.badge,
                                         color = Color.White,
-                                        fontSize = 10.sp,
-                                        fontWeight = FontWeight.Bold,
-                                        modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                                        fontSize = 11.sp,
+                                        fontWeight = FontWeight.Black,
+                                        modifier = Modifier.padding(horizontal = 7.dp, vertical = 2.dp)
                                     )
                                 }
                                 selectedSource?.let { src ->
                                     Text(
-                                        text = src.healthBadge,
-                                        color = Color(0xFF00E5FF),
-                                        fontSize = 11.5.sp,
-                                        fontWeight = FontWeight.SemiBold,
+                                        text = src.name,
+                                        color = Color.White.copy(alpha = 0.8f),
+                                        fontSize = 12.5.sp,
+                                        fontWeight = FontWeight.Medium,
                                         maxLines = 1,
                                         overflow = TextOverflow.Ellipsis
                                     )
                                 }
                             }
                         }
-
-                        // Quick Top Controls: DRC Dialog Boost, P2P Mesh, Aspect Ratio, OLED Guard & Engine Toggle
-                        Row(
-                            horizontalArrangement = Arrangement.spacedBy(6.dp),
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            // Smart Audio Normalizer (DRC & Dialog Boost) Chip
-                            Surface(
-                                color = if (drcDialogBoostEnabled) Color(0x3300E5FF) else Color(0xFF222634),
-                                shape = RoundedCornerShape(8.dp),
-                                border = BorderStroke(1.dp, if (drcDialogBoostEnabled) Color(0xFF00E5FF) else Color.White.copy(alpha = 0.2f)),
-                                modifier = Modifier
-                                    .testTag("drc_audio_boost_toggle")
-                                    .clickable {
-                                        viewModel.toggleDrcDialogBoost()
-                                        hudMessage = if (!drcDialogBoostEnabled) {
-                                            "🎙 Smart Audio DRC + Dialog Boost ON (+6.5 dB)"
-                                        } else {
-                                            "🎙 Smart Audio Normalizer Bypassed"
-                                        }
-                                    }
-                            ) {
-                                Row(
-                                    verticalAlignment = Alignment.CenterVertically,
-                                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 5.dp)
-                                ) {
-                                    Icon(
-                                        imageVector = Icons.Filled.GraphicEq,
-                                        contentDescription = "Smart Audio Normalizer DRC",
-                                        tint = if (drcDialogBoostEnabled) Color(0xFF00E5FF) else Color.White,
-                                        modifier = Modifier.size(14.dp)
-                                    )
-                                    Spacer(modifier = Modifier.width(4.dp))
-                                    Text(
-                                        text = if (drcDialogBoostEnabled) "DRC Boost ON" else "DRC OFF",
-                                        color = Color.White,
-                                        fontSize = 10.5.sp,
-                                        fontWeight = FontWeight.Bold
-                                    )
-                                }
-                            }
-
-                            // Anti-Buffering Peer Mesh (P2P WebRTC) Chip
-                            Surface(
-                                color = if (p2pMeshEnabled) Color(0x3300E676) else Color(0xFF222634),
-                                shape = RoundedCornerShape(8.dp),
-                                border = BorderStroke(1.dp, if (p2pMeshEnabled) Color(0xFF00E676) else Color.White.copy(alpha = 0.2f)),
-                                modifier = Modifier
-                                    .testTag("p2p_mesh_toggle")
-                                    .clickable {
-                                        viewModel.toggleP2pMesh()
-                                        hudMessage = if (!p2pMeshEnabled) {
-                                            "🕸 WebRTC P2P Mesh Active ($activeP2pPeers peers • $p2pOffloadedPercent% offloaded)"
-                                        } else {
-                                            "🕸 P2P Mesh Paused (Direct CDN Only)"
-                                        }
-                                    }
-                            ) {
-                                Row(
-                                    verticalAlignment = Alignment.CenterVertically,
-                                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 5.dp)
-                                ) {
-                                    Icon(
-                                        imageVector = Icons.Filled.Hub,
-                                        contentDescription = "P2P Mesh",
-                                        tint = if (p2pMeshEnabled) Color(0xFF00E676) else Color.White,
-                                        modifier = Modifier.size(14.dp)
-                                    )
-                                    Spacer(modifier = Modifier.width(4.dp))
-                                    Text(
-                                        text = if (p2pMeshEnabled) "P2P $activeP2pPeers" else "P2P OFF",
-                                        color = Color.White,
-                                        fontSize = 10.5.sp,
-                                        fontWeight = FontWeight.Bold
-                                    )
-                                }
-                            }
-
-                            // Aspect Ratio Selector Chip
-                            Surface(
-                                color = Color(0xFF222634),
-                                shape = RoundedCornerShape(8.dp),
-                                border = BorderStroke(1.dp, Color.White.copy(alpha = 0.2f)),
-                                modifier = Modifier
-                                    .testTag("aspect_ratio_button")
-                                    .clickable {
-                                        resizeModeIndex = (resizeModeIndex + 1) % 3
-                                        hudMessage = "🖼 Aspect Ratio: $resizeModeLabel"
-                                    }
-                            ) {
-                                Text(
-                                    text = resizeModeLabel,
-                                    color = Color.White,
-                                    fontSize = 10.5.sp,
-                                    fontWeight = FontWeight.Bold,
-                                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 5.dp)
-                                )
-                            }
-
-                            // Silent Textless Screensaver Trigger
-                            Surface(
-                                color = Color(0xFF222634),
-                                shape = RoundedCornerShape(8.dp),
-                                border = BorderStroke(1.dp, Color.White.copy(alpha = 0.2f)),
-                                modifier = Modifier
-                                    .testTag("oled_guard_button")
-                                    .clickable {
-                                        savedScreensaverPositionMs = exoPlayer.currentPosition.coerceAtLeast(currentPositionMs)
-                                        exoPlayer.pause()
-                                        hudMessage = null
-                                        isOledScreensaverActive = true
-                                    }
-                            ) {
-                                Icon(
-                                    imageVector = Icons.Filled.DarkMode,
-                                    contentDescription = "Screensaver",
-                                    tint = Color.White,
-                                    modifier = Modifier
-                                        .padding(horizontal = 8.dp, vertical = 5.dp)
-                                        .size(14.dp)
-                                )
-                            }
-
-                            // Mode Toggle: Native vs Headless Web Player
-                            Surface(
-                                color = if (isWebPlayerMode) Color(0xFFFF2A54) else Color(0xFF222634),
-                                shape = RoundedCornerShape(8.dp),
-                                modifier = Modifier
-                                    .clickable {
-                                        isWebPlayerMode = !isWebPlayerMode
-                                        if (isWebPlayerMode) {
-                                            exoPlayer.pause()
-                                            hudMessage = "🌐 Client-Side Headless Web Resolver"
-                                        } else {
-                                            exoPlayer.play()
-                                            hudMessage = "⚡ Native Ad-Free HLS Engine"
-                                        }
-                                    }
-                            ) {
-                                Row(
-                                    verticalAlignment = Alignment.CenterVertically,
-                                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 5.dp)
-                                ) {
-                                    Icon(
-                                        imageVector = if (isWebPlayerMode) Icons.Filled.Language else Icons.Filled.FlashOn,
-                                        contentDescription = "Toggle Player Engine",
-                                        tint = Color.White,
-                                        modifier = Modifier.size(14.dp)
-                                    )
-                                    Spacer(modifier = Modifier.width(4.dp))
-                                    Text(
-                                        text = if (isWebPlayerMode) "Web JS" else "Native HD",
-                                        color = Color.White,
-                                        fontSize = 10.5.sp,
-                                        fontWeight = FontWeight.Bold
-                                    )
-                                }
-                            }
-                        }
                     }
 
-                    // Expanded Top TV D-Pad UP Bar (Audio DRC, P2P Telemetry & Instant Failover Test)
-                    AnimatedVisibility(visible = showTopAudioAndServerBar) {
-                        Surface(
-                            color = Color(0xDD101420),
-                            shape = RoundedCornerShape(10.dp),
-                            border = BorderStroke(1.dp, Color(0xFF00E5FF).copy(alpha = 0.4f)),
+                    // Top-Right Screensaver & Web/Native Switcher (Preserving testTags)
+                    Row(
+                        horizontalArrangement = Arrangement.spacedBy(10.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        TvControlPillButton(
+                            label = resizeModeLabel,
+                            icon = Icons.Filled.AspectRatio,
+                            onClick = {
+                                resizeModeIndex = (resizeModeIndex + 1) % 3
+                                hudMessage = "Screen: $resizeModeLabel"
+                                osdHideCounter++
+                            },
                             modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(top = 8.dp)
-                        ) {
-                            Row(
-                                modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
-                                horizontalArrangement = Arrangement.SpaceBetween,
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                Text(
-                                    text = "DRC Compressor: Active (+6.5dB Dialog) • WebRTC P2P Mesh: $activeP2pPeers Peers ($p2pOffloadedPercent% CDN Offload)",
-                                    color = Color(0xFF00E5FF),
-                                    fontSize = 11.sp,
-                                    fontWeight = FontWeight.SemiBold,
-                                    modifier = Modifier.weight(1f)
-                                )
-                                TextButton(
-                                    onClick = { triggerMillisecondFailover("Manual Zero-Drop Hot-Swap") }
-                                ) {
-                                    Text("Hot-Swap Server Now", color = Color(0xFFFFC857), fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                                .focusProperties {
+                                    down = if (episodeSources.isNotEmpty()) firstMirrorFocusRequester else playPauseFocusRequester
                                 }
-                            }
-                        }
+                                .testTag("aspect_ratio_button")
+                        )
+
+                        TvControlPillButton(
+                            label = "Dim Screen",
+                            icon = Icons.Filled.DarkMode,
+                            onClick = {
+                                savedScreensaverPositionMs = exoPlayer.currentPosition.coerceAtLeast(currentPositionMs)
+                                exoPlayer.pause()
+                                hudMessage = null
+                                isOledScreensaverActive = true
+                            },
+                            modifier = Modifier
+                                .focusProperties {
+                                    down = if (episodeSources.isNotEmpty()) firstMirrorFocusRequester else playPauseFocusRequester
+                                }
+                                .testTag("oled_guard_button")
+                        )
                     }
                 }
 
-                // Bottom Controls: Progress Bar, Media Buttons & Multi-Source / Part Rail (TV D-Pad DOWN / Swipe-Up)
+                // Bottom Netflix TV Control Deck:
+                // Row A (Top of bottom deck): Stream Mirrors & Episode Parts (Press UP from Timeline/Play to reach!)
+                // Row B (Middle): D-Pad Scrubbable Timeline Progress Bar
+                // Row C (Bottom): Rewind 10s • Play/Pause (Default Focus) • Forward 10s • Quality Selector (1080p/720p/480p)
                 Column(
                     modifier = Modifier
                         .fillMaxWidth()
                         .align(Alignment.BottomCenter)
-                        .background(
-                            if (isWebPlayerMode) Color(0xDD090B10) else Color.Transparent,
-                            RoundedCornerShape(12.dp)
-                        )
-                        .padding(if (isWebPlayerMode) 10.dp else 0.dp)
                 ) {
-                    // Multi-Server & Episode Part Selector Row with Automated Source Health Badges
-                    if (episodeSources.isNotEmpty() && showBottomPartDrawer) {
+                    if (episodeSources.isNotEmpty()) {
                         val hasParts = episodeSources.any { it.name.startsWith("Part ", ignoreCase = true) || it.partNumber != null }
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(bottom = 6.dp),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Text(
-                                text = if (hasParts) "EPISODE PARTS & MIRRORS" else "STREAM MIRRORS",
-                                color = Color.White.copy(alpha = 0.7f),
-                                fontSize = 10.sp,
-                                fontWeight = FontWeight.Bold,
-                                letterSpacing = 0.8.sp
-                            )
-                        }
+                        Text(
+                            text = if (hasParts) "EPISODE PARTS & SERVERS (Press UP / DOWN to navigate)" else "STREAM SERVERS (Switch if slow)",
+                            color = Color.White.copy(alpha = 0.8f),
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.Bold,
+                            letterSpacing = 0.6.sp,
+                            modifier = Modifier.padding(bottom = 8.dp)
+                        )
 
                         LazyRow(
-                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            horizontalArrangement = Arrangement.spacedBy(10.dp),
                             modifier = Modifier.fillMaxWidth()
                         ) {
-                            itemsIndexed(episodeSources) { _, source ->
+                            itemsIndexed(episodeSources) { index, source ->
                                 val isSelected = source.url == selectedSource?.url && source.name == selectedSource?.name
                                 var isServerFocused by remember { mutableStateOf(false) }
 
                                 Surface(
-                                    color = when {
-                                        isSelected -> Color(0xFFFF2A54)
-                                        isServerFocused -> Color(0xFF2D3548)
-                                        else -> Color(0xCC151926)
+                                    onClick = {
+                                        val currentPart = selectedSource?.partNumber
+                                        val nextPart = source.partNumber
+                                        if (currentPart == nextPart && currentPositionMs > 0L && !isLiveStream) {
+                                            failoverResumePositionMs = currentPositionMs
+                                        }
+                                        viewModel.selectSource(source)
+                                        hudMessage = "Switched to ${source.name}"
+                                        osdHideCounter++
                                     },
-                                    shape = RoundedCornerShape(8.dp),
+                                    color = when {
+                                        isServerFocused -> Color.White
+                                        isSelected -> Color(0xFFE50914)
+                                        else -> Color(0xD9181C28)
+                                    },
+                                    shape = RoundedCornerShape(10.dp),
                                     border = BorderStroke(
-                                        if (isServerFocused) 2.dp else 1.dp,
-                                        if (isServerFocused) Color(0xFF00E5FF) else if (isSelected) Color(0xFFFF2A54) else Color.White.copy(alpha = 0.22f)
+                                        width = if (isServerFocused) 2.5.dp else 1.dp,
+                                        color = when {
+                                            isServerFocused -> Color.White
+                                            isSelected -> Color(0xFFE50914)
+                                            else -> Color.White.copy(alpha = 0.25f)
+                                        }
                                     ),
                                     modifier = Modifier
-                                        .testTag("source_button_${source.name.lowercase().replace(" ", "_")}")
-                                        .onFocusChanged { isServerFocused = it.isFocused }
-                                        .focusable()
-                                        .clickable {
-                                            val currentPart = selectedSource?.partNumber
-                                            val nextPart = source.partNumber
-                                            // Preserve exact timestamp if switching mirrors for the same full episode or same part
-                                            if (currentPart == nextPart && currentPositionMs > 0L && !isLiveStream) {
-                                                failoverResumePositionMs = currentPositionMs
-                                            }
-                                            viewModel.selectSource(source)
-                                            hudMessage = "⚡ Switched to ${source.name} (${source.healthBadge})"
-                                            osdHideCounter++
+                                        .then(
+                                            if (index == 0) Modifier.focusRequester(firstMirrorFocusRequester) else Modifier
+                                        )
+                                        .focusProperties {
+                                            up = backButtonFocusRequester
+                                            down = if (!isLiveStream && durationMs > 0L) timelineFocusRequester else playPauseFocusRequester
                                         }
+                                        .graphicsLayer {
+                                            scaleX = if (isServerFocused) 1.07f else 1.0f
+                                            scaleY = if (isServerFocused) 1.07f else 1.0f
+                                        }
+                                        .onFocusChanged {
+                                            isServerFocused = it.isFocused
+                                            if (it.isFocused) osdHideCounter++
+                                        }
+                                        .testTag("source_button_${source.name.lowercase().replace(" ", "_")}")
                                 ) {
                                     Row(
                                         verticalAlignment = Alignment.CenterVertically,
-                                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp)
+                                        modifier = Modifier.padding(horizontal = 14.dp, vertical = 9.dp)
                                     ) {
                                         Icon(
-                                            imageVector = when {
-                                                source.name.contains("Live", ignoreCase = true) -> Icons.Filled.Sensors
-                                                source.name.startsWith("Part ", ignoreCase = true) || source.partNumber != null -> Icons.Filled.PlayCircleOutline
-                                                else -> Icons.Filled.Verified
-                                            },
+                                            imageVector = if (isSelected) Icons.Filled.CheckCircle else Icons.Filled.PlayCircleOutline,
                                             contentDescription = null,
-                                            tint = if (isSelected) Color.White else Color(0xFF00E5FF),
-                                            modifier = Modifier.size(14.dp)
+                                            tint = if (isServerFocused) Color.Black else Color.White,
+                                            modifier = Modifier.size(16.dp)
                                         )
-                                        Spacer(modifier = Modifier.width(6.dp))
-                                        Column {
-                                            Text(
-                                                text = source.name,
-                                                color = Color.White,
-                                                fontSize = 11.5.sp,
-                                                fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium
-                                            )
-                                            Text(
-                                                text = "${source.healthBadge} • ${source.pingMs}ms",
-                                                color = if (isSelected) Color.White.copy(alpha = 0.9f) else Color(0xFF949EB0),
-                                                fontSize = 9.5.sp
-                                            )
-                                        }
+                                        Spacer(modifier = Modifier.width(7.dp))
+                                        Text(
+                                            text = source.name,
+                                            color = if (isServerFocused) Color.Black else Color.White,
+                                            fontSize = 13.sp,
+                                            fontWeight = FontWeight.Bold
+                                        )
                                     }
                                 }
                             }
                         }
-                        Spacer(modifier = Modifier.height(10.dp))
+                        Spacer(modifier = Modifier.height(14.dp))
                     }
 
-                    if (!isWebPlayerMode) {
-                        if (!isLiveStream && durationMs > 0L) {
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                Text(
-                                    text = formatTimestamp(currentPositionMs),
-                                    color = Color.White,
-                                    fontSize = 12.sp,
-                                    fontWeight = FontWeight.Medium
-                                )
-                                Spacer(modifier = Modifier.width(10.dp))
-                                Slider(
-                                    value = currentPositionMs.toFloat().coerceIn(0f, durationMs.toFloat().coerceAtLeast(1f)),
-                                    onValueChange = { newPos ->
-                                        currentPositionMs = newPos.toLong()
-                                        trickPlayPreviewMs = currentPositionMs
-                                        showTrickPlayPreview = true
-                                        exoPlayer.seekTo(currentPositionMs)
-                                        osdHideCounter++
-                                    },
-                                    valueRange = 0f..durationMs.toFloat().coerceAtLeast(1f),
-                                    colors = SliderDefaults.colors(
-                                        thumbColor = Color(0xFFFF2A54),
-                                        activeTrackColor = Color(0xFFFF2A54),
-                                        inactiveTrackColor = Color.White.copy(alpha = 0.3f)
-                                    ),
-                                    modifier = Modifier.weight(1f)
-                                )
-                                Spacer(modifier = Modifier.width(10.dp))
-                                Text(
-                                    text = formatTimestamp(durationMs),
-                                    color = Color.White.copy(alpha = 0.7f),
-                                    fontSize = 12.sp
-                                )
-                            }
-                        } else if (isLiveStream) {
-                            Row(
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.spacedBy(8.dp),
-                                modifier = Modifier.padding(vertical = 4.dp)
+                    // D-Pad Friendly Netflix Timeline Scrubber (Left/Right seeks -10s/+10s, Up goes to Mirrors, Down goes to Play/Pause)
+                    if (!isWebPlayerMode && !isLiveStream && durationMs > 0L) {
+                        var isTimelineFocused by remember { mutableStateOf(false) }
+                        val progressFraction = (currentPositionMs.toFloat() / durationMs.toFloat().coerceAtLeast(1f)).coerceIn(0f, 1f)
+
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .focusRequester(timelineFocusRequester)
+                                .focusProperties {
+                                    up = if (episodeSources.isNotEmpty()) firstMirrorFocusRequester else backButtonFocusRequester
+                                    down = playPauseFocusRequester
+                                }
+                                .onFocusChanged {
+                                    isTimelineFocused = it.isFocused
+                                    if (it.isFocused) osdHideCounter++
+                                }
+                                .onKeyEvent { keyEvent ->
+                                    if (keyEvent.nativeKeyEvent.action == android.view.KeyEvent.ACTION_DOWN) {
+                                        when (keyEvent.nativeKeyEvent.keyCode) {
+                                            android.view.KeyEvent.KEYCODE_DPAD_LEFT -> {
+                                                val newPos = (exoPlayer.currentPosition - 10000L).coerceAtLeast(0L)
+                                                exoPlayer.seekTo(newPos)
+                                                currentPositionMs = newPos
+                                                trickPlayPreviewMs = newPos
+                                                showTrickPlayPreview = true
+                                                osdHideCounter++
+                                                true
+                                            }
+                                            android.view.KeyEvent.KEYCODE_DPAD_RIGHT -> {
+                                                val target = (exoPlayer.currentPosition + 10000L).coerceAtMost(durationMs)
+                                                exoPlayer.seekTo(target)
+                                                currentPositionMs = target
+                                                trickPlayPreviewMs = target
+                                                showTrickPlayPreview = true
+                                                osdHideCounter++
+                                                true
+                                            }
+                                            else -> false
+                                        }
+                                    } else {
+                                        false
+                                    }
+                                }
+                                .focusable()
+                                .padding(vertical = 6.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(
+                                text = formatTimestamp(currentPositionMs),
+                                color = Color.White,
+                                fontSize = 13.sp,
+                                fontWeight = FontWeight.Bold
+                            )
+                            Spacer(modifier = Modifier.width(12.dp))
+                            Box(
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .height(if (isTimelineFocused) 10.dp else 6.dp)
+                                    .clip(RoundedCornerShape(50))
+                                    .background(Color.White.copy(alpha = 0.28f))
                             ) {
                                 Box(
                                     modifier = Modifier
-                                        .size(8.dp)
-                                        .clip(CircleShape)
-                                        .background(Color(0xFFFF2A54))
-                                )
-                                Text(
-                                    text = "LIVE",
-                                    color = Color.White,
-                                    fontSize = 11.5.sp,
-                                    fontWeight = FontWeight.Bold
+                                        .fillMaxWidth(progressFraction)
+                                        .fillMaxHeight()
+                                        .background(
+                                            if (isTimelineFocused) Color.White else Color(0xFFE50914)
+                                        )
                                 )
                             }
+                            Spacer(modifier = Modifier.width(12.dp))
+                            Text(
+                                text = formatTimestamp(durationMs),
+                                color = Color.White.copy(alpha = 0.8f),
+                                fontSize = 13.sp,
+                                fontWeight = FontWeight.SemiBold
+                            )
                         }
+                        Spacer(modifier = Modifier.height(10.dp))
+                    }
 
-                        Spacer(modifier = Modifier.height(6.dp))
-
-                        // Media Action Control Buttons
+                    // Primary Transport Controls Row (Always visible & focusable in both Native and Web Player modes!)
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
                         Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.Center,
+                            horizontalArrangement = Arrangement.spacedBy(14.dp),
                             verticalAlignment = Alignment.CenterVertically
                         ) {
                             if (!isLiveStream) {
-                                TvPlayerIconButton(
+                                TvTransportButton(
                                     icon = Icons.Filled.Replay10,
-                                    contentDescription = "Rewind 10 seconds",
+                                    label = "-10s",
                                     onClick = {
-                                        val newPos = (exoPlayer.currentPosition - 10000L).coerceAtLeast(0L)
-                                        exoPlayer.seekTo(newPos)
-                                        trickPlayPreviewMs = newPos
-                                        showTrickPlayPreview = true
+                                        if (isWebPlayerMode) {
+                                            activeWebView?.evaluateJavascript(
+                                                "(function(){var v=document.querySelector('video');if(v)v.currentTime=Math.max(0,v.currentTime-10);})();",
+                                                null
+                                            )
+                                        } else {
+                                            val newPos = (exoPlayer.currentPosition - 10000L).coerceAtLeast(0L)
+                                            exoPlayer.seekTo(newPos)
+                                            currentPositionMs = newPos
+                                            trickPlayPreviewMs = newPos
+                                            showTrickPlayPreview = true
+                                        }
                                         hudMessage = "⏪ -10s"
                                         osdHideCounter++
-                                    }
+                                    },
+                                    modifier = Modifier
+                                        .focusRequester(rewindFocusRequester)
+                                        .focusProperties {
+                                            up = if (!isWebPlayerMode && durationMs > 0L) timelineFocusRequester else if (episodeSources.isNotEmpty()) firstMirrorFocusRequester else backButtonFocusRequester
+                                            right = playPauseFocusRequester
+                                        }
+                                        .testTag("rewind_10_button")
                                 )
-                                Spacer(modifier = Modifier.width(20.dp))
                             }
 
-                            Surface(
-                                shape = CircleShape,
-                                color = Color(0xFFFF2A54),
-                                modifier = Modifier
-                                    .size(54.dp)
-                                    .focusRequester(playPauseFocusRequester)
-                                    .focusable()
-                                    .clickable {
+                            TvTransportButton(
+                                icon = if (isPlaying) Icons.Filled.Pause else Icons.Filled.PlayArrow,
+                                label = if (isPlaying) "Pause" else "Play",
+                                isPrimary = true,
+                                onClick = {
+                                    if (isWebPlayerMode) {
+                                        isPlaying = !isPlaying
+                                        activeWebView?.evaluateJavascript(
+                                            "(function(){var v=document.querySelector('video');if(v){if(v.paused)v.play();else v.pause();}})();",
+                                            null
+                                        )
+                                    } else {
                                         if (exoPlayer.isPlaying) {
                                             exoPlayer.pause()
                                         } else {
                                             exoPlayer.play()
                                         }
-                                        osdHideCounter++
+                                    }
+                                    osdHideCounter++
+                                },
+                                modifier = Modifier
+                                    .focusRequester(playPauseFocusRequester)
+                                    .focusProperties {
+                                        up = if (!isWebPlayerMode && !isLiveStream && durationMs > 0L) {
+                                            timelineFocusRequester
+                                        } else if (episodeSources.isNotEmpty()) {
+                                            firstMirrorFocusRequester
+                                        } else {
+                                            backButtonFocusRequester
+                                        }
+                                        if (!isLiveStream) {
+                                            left = rewindFocusRequester
+                                            right = forwardFocusRequester
+                                        } else {
+                                            right = qualityFocusRequester
+                                        }
                                     }
                                     .testTag("play_pause_button")
-                            ) {
-                                Box(contentAlignment = Alignment.Center) {
-                                    Icon(
-                                        imageVector = if (isPlaying) Icons.Filled.Pause else Icons.Filled.PlayArrow,
-                                        contentDescription = if (isPlaying) "Pause" else "Play",
-                                        tint = Color.White,
-                                        modifier = Modifier.size(30.dp)
-                                    )
-                                }
-                            }
+                            )
 
                             if (!isLiveStream) {
-                                Spacer(modifier = Modifier.width(20.dp))
-                                TvPlayerIconButton(
+                                TvTransportButton(
                                     icon = Icons.Filled.Forward10,
-                                    contentDescription = "Fast Forward 10 seconds",
+                                    label = "+10s",
                                     onClick = {
-                                        val dur = exoPlayer.duration.coerceAtLeast(0L)
-                                        val target = if (dur > 0L) (exoPlayer.currentPosition + 10000L).coerceAtMost(dur) else exoPlayer.currentPosition + 10000L
-                                        exoPlayer.seekTo(target)
-                                        trickPlayPreviewMs = target
-                                        showTrickPlayPreview = true
+                                        if (isWebPlayerMode) {
+                                            activeWebView?.evaluateJavascript(
+                                                "(function(){var v=document.querySelector('video');if(v)v.currentTime=v.currentTime+10;})();",
+                                                null
+                                            )
+                                        } else {
+                                            val dur = exoPlayer.duration.coerceAtLeast(0L)
+                                            val target = if (dur > 0L) (exoPlayer.currentPosition + 10000L).coerceAtMost(dur) else exoPlayer.currentPosition + 10000L
+                                            exoPlayer.seekTo(target)
+                                            currentPositionMs = target
+                                            trickPlayPreviewMs = target
+                                            showTrickPlayPreview = true
+                                        }
                                         hudMessage = "⏩ +10s"
                                         osdHideCounter++
-                                    }
+                                    },
+                                    modifier = Modifier
+                                        .focusRequester(forwardFocusRequester)
+                                        .focusProperties {
+                                            up = if (!isWebPlayerMode && durationMs > 0L) timelineFocusRequester else if (episodeSources.isNotEmpty()) firstMirrorFocusRequester else backButtonFocusRequester
+                                            left = playPauseFocusRequester
+                                            right = qualityFocusRequester
+                                        }
+                                        .testTag("forward_10_button")
                                 )
                             }
+                        }
+
+                        // User Resolution / Quality Switcher (Defaults to 1080p Full HD!)
+                        Row(
+                            horizontalArrangement = Arrangement.spacedBy(10.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            TvControlPillButton(
+                                label = "Quality: ${qualityPreset.label}",
+                                icon = Icons.Filled.HighQuality,
+                                onClick = {
+                                    val presets = VideoQualityPreset.entries
+                                    val nextIdx = (presets.indexOf(qualityPreset) + 1) % presets.size
+                                    qualityPreset = presets[nextIdx]
+                                    hudMessage = "Video Quality: ${qualityPreset.label}"
+                                    osdHideCounter++
+                                },
+                                modifier = Modifier
+                                    .focusRequester(qualityFocusRequester)
+                                    .focusProperties {
+                                        up = if (!isWebPlayerMode && !isLiveStream && durationMs > 0L) timelineFocusRequester else if (episodeSources.isNotEmpty()) firstMirrorFocusRequester else backButtonFocusRequester
+                                        left = if (!isLiveStream) forwardFocusRequester else playPauseFocusRequester
+                                    }
+                                    .testTag("quality_selector_button")
+                            )
                         }
                     }
                 }
             }
         }
 
-        // Silent, Textless Screensaver:
-        // Pure #000000 pitch-black screen with an ultra-slow, dim, completely textless cinematic backdrop pan.
-        // Zero text, zero warning labels, zero clocks, zero diagnostic readouts.
-        // Any remote button or screen tap dismisses immediately and resumes playback.
+        // Netflix TV Style "Exit Video?" Confirmation Dialog when pressing Back
+        AnimatedVisibility(
+            visible = showExitConfirmDialog,
+            enter = fadeIn(tween(150)),
+            exit = fadeOut(tween(120)),
+            modifier = Modifier
+                .fillMaxSize()
+                .testTag("exit_confirmation_dialog")
+        ) {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(Color(0xD9000000))
+                    .clickable { showExitConfirmDialog = false },
+                contentAlignment = Alignment.Center
+            ) {
+                Surface(
+                    color = Color(0xFF141824),
+                    shape = RoundedCornerShape(22.dp),
+                    border = BorderStroke(1.5.dp, Color.White.copy(alpha = 0.22f)),
+                    modifier = Modifier
+                        .widthIn(min = 340.dp, max = 460.dp)
+                        .padding(24.dp)
+                ) {
+                    Column(
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        modifier = Modifier.padding(28.dp)
+                    ) {
+                        Text(
+                            text = "Exit Video?",
+                            color = Color.White,
+                            fontSize = 22.sp,
+                            fontWeight = FontWeight.Black
+                        )
+                        Spacer(modifier = Modifier.height(8.dp))
+                        Text(
+                            text = "Do you want to stop watching and return to the show catalog?",
+                            color = Color.White.copy(alpha = 0.75f),
+                            fontSize = 14.sp,
+                            textAlign = TextAlign.Center
+                        )
+                        Spacer(modifier = Modifier.height(24.dp))
+                        Row(
+                            horizontalArrangement = Arrangement.spacedBy(14.dp),
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            TvControlPillButton(
+                                label = "Keep Watching",
+                                icon = Icons.Filled.PlayArrow,
+                                isPrimary = true,
+                                onClick = { showExitConfirmDialog = false },
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .focusRequester(keepWatchingFocusRequester)
+                                    .testTag("exit_dialog_keep_watching_btn")
+                            )
+                            TvControlPillButton(
+                                label = "Exit Video",
+                                icon = Icons.AutoMirrored.Filled.ArrowBack,
+                                onClick = {
+                                    showExitConfirmDialog = false
+                                    onBack()
+                                },
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .testTag("exit_dialog_confirm_exit_btn")
+                            )
+                        }
+                    }
+                }
+            }
+        }
+
+        // Silent, Textless Screensaver
         AnimatedVisibility(
             visible = isOledScreensaverActive,
             enter = fadeIn(tween(800)),
@@ -1771,11 +1882,109 @@ fun VideoPlayerScreen(
     }
 }
 
-/**
- * Client-Side Headless / Sandboxed WebView Resolver:
- * Loads either a direct HLS (.m3u8) / MP4 stream via an embedded HTML5 + hls.js + P2P media loader
- * or resolves tokenized iframe embeds directly on the client's local IP.
- */
+@Composable
+private fun TvTransportButton(
+    icon: ImageVector,
+    label: String,
+    isPrimary: Boolean = false,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    var isFocused by remember { mutableStateOf(false) }
+
+    Surface(
+        onClick = onClick,
+        shape = RoundedCornerShape(50),
+        color = when {
+            isFocused -> Color.White
+            isPrimary -> Color(0xFFE50914)
+            else -> Color(0xCC1A2030)
+        },
+        border = BorderStroke(
+            width = if (isFocused) 2.5.dp else 1.dp,
+            color = if (isFocused) Color.White else Color.White.copy(alpha = 0.25f)
+        ),
+        modifier = modifier
+            .graphicsLayer {
+                scaleX = if (isFocused) 1.10f else 1.0f
+                scaleY = if (isFocused) 1.10f else 1.0f
+            }
+            .onFocusChanged { isFocused = it.isFocused }
+    ) {
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            modifier = Modifier.padding(horizontal = 18.dp, vertical = 11.dp)
+        ) {
+            Icon(
+                imageVector = icon,
+                contentDescription = label,
+                tint = if (isFocused) Color.Black else Color.White,
+                modifier = Modifier.size(22.dp)
+            )
+            Spacer(modifier = Modifier.width(6.dp))
+            Text(
+                text = label,
+                color = if (isFocused) Color.Black else Color.White,
+                fontSize = 14.sp,
+                fontWeight = FontWeight.Bold
+            )
+        }
+    }
+}
+
+@Composable
+private fun TvControlPillButton(
+    label: String,
+    icon: ImageVector,
+    isPrimary: Boolean = false,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    var isFocused by remember { mutableStateOf(false) }
+
+    Surface(
+        onClick = onClick,
+        shape = RoundedCornerShape(50),
+        color = when {
+            isFocused -> Color.White
+            isPrimary -> Color(0xFFE50914)
+            else -> Color(0xCC1A2030)
+        },
+        border = BorderStroke(
+            width = if (isFocused) 2.5.dp else 1.dp,
+            color = if (isFocused) Color.White else Color.White.copy(alpha = 0.22f)
+        ),
+        modifier = modifier
+            .graphicsLayer {
+                scaleX = if (isFocused) 1.07f else 1.0f
+                scaleY = if (isFocused) 1.07f else 1.0f
+            }
+            .onFocusChanged { isFocused = it.isFocused }
+    ) {
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.Center,
+            modifier = Modifier.padding(horizontal = 14.dp, vertical = 9.dp)
+        ) {
+            Icon(
+                imageVector = icon,
+                contentDescription = label,
+                tint = if (isFocused) Color.Black else Color.White,
+                modifier = Modifier.size(16.dp)
+            )
+            Spacer(modifier = Modifier.width(6.dp))
+            Text(
+                text = label,
+                color = if (isFocused) Color.Black else Color.White,
+                fontSize = 12.5.sp,
+                fontWeight = FontWeight.Bold,
+                maxLines = 1,
+                softWrap = false
+            )
+        }
+    }
+}
+
 private fun loadWebStream(webView: WebView, url: String) {
     webView.tag = url
     if (url.contains(".m3u8", ignoreCase = true) || url.contains(".mp4", ignoreCase = true)) {
@@ -1812,46 +2021,51 @@ private fun loadWebStream(webView: WebView, url: String) {
         """.trimIndent()
         webView.loadDataWithBaseURL("https://www.1tamilcrow.net/", html, "text/html", "UTF-8", null)
     } else {
-        webView.loadUrl(url, mapOf("Referer" to "https://www.1tamilcrow.net/"))
+        val referer = when {
+            url.contains("embed.st", ignoreCase = true) || url.contains("streamed.st", ignoreCase = true) ->
+                "https://streamed.st/"
+            url.contains("taifood-blog.asia", ignoreCase = true) || url.contains("ppv.st", ignoreCase = true) ->
+                "https://ppv.st/"
+            else ->
+                "https://www.1tamilcrow.net/"
+        }
+        webView.loadUrl(url, mapOf("Referer" to referer))
     }
 }
 
 @Composable
 fun TvPlayerIconButton(
-    icon: androidx.compose.ui.graphics.vector.ImageVector,
+    icon: ImageVector,
     contentDescription: String,
     onClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     var isFocused by remember { mutableStateOf(false) }
 
-    IconButton(
+    Surface(
         onClick = onClick,
+        shape = CircleShape,
+        color = if (isFocused) Color.White else Color(0xCC1A2030),
+        border = BorderStroke(
+            width = if (isFocused) 2.5.dp else 1.dp,
+            color = if (isFocused) Color.White else Color.White.copy(alpha = 0.25f)
+        ),
         modifier = modifier
-            .onFocusChanged { isFocused = it.isFocused }
-            .focusable()
+            .size(46.dp)
             .graphicsLayer {
-                scaleX = if (isFocused) 1.08f else 1.0f
-                scaleY = if (isFocused) 1.08f else 1.0f
+                scaleX = if (isFocused) 1.10f else 1.0f
+                scaleY = if (isFocused) 1.10f else 1.0f
             }
-            .border(
-                BorderStroke(
-                    1.5.dp,
-                    if (isFocused) Color(0xFF00E5FF) else Color.Transparent
-                ),
-                shape = CircleShape
-            )
-            .background(
-                if (isFocused) Color(0x4400E5FF) else Color(0x33000000),
-                shape = CircleShape
-            )
+            .onFocusChanged { isFocused = it.isFocused }
     ) {
-        Icon(
-            imageVector = icon,
-            contentDescription = contentDescription,
-            tint = Color.White,
-            modifier = Modifier.size(26.dp)
-        )
+        Box(contentAlignment = Alignment.Center) {
+            Icon(
+                imageVector = icon,
+                contentDescription = contentDescription,
+                tint = if (isFocused) Color.Black else Color.White,
+                modifier = Modifier.size(24.dp)
+            )
+        }
     }
 }
 

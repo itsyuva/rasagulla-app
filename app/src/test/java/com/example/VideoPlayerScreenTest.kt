@@ -211,6 +211,61 @@ class VideoPlayerScreenTest {
         composeTestRule.onNodeWithTag("developer_easter_egg_overlay").performClick()
         composeTestRule.waitForIdle()
     }
+
+    @Test
+    fun testPlayerExitConfirmationAndContinueWatchingThumbnails() {
+        val fakeRepository = FakeVijayTvRepository()
+        val viewModel = MainViewModel(fakeRepository)
+
+        // Verify Continue Watching thumbnail resolution never leaks Bigg Boss poster onto MasterChef or Movies
+        val masterChefEp = fakeRepository.getInitialEpisodes("https://www.tamildhool.tech/sony-liv/celebrity-masterchef-tamil/").first()
+        viewModel.recordWatchHistory(
+            episodeTitle = masterChefEp.title,
+            episodeUrl = masterChefEp.url,
+            dateStr = masterChefEp.dateStr
+        )
+        val recordedThumb = viewModel.watchHistory.value.first().thumbnailUrl
+        org.junit.Assert.assertNotEquals(
+            "Continue Watching must resolve the real show/movie thumbnail instead of Bigg Boss default",
+            VijayTvRepository.BIGG_BOSS_POSTER,
+            recordedThumb
+        )
+
+        var didExit = false
+        composeTestRule.setContent {
+            MyApplicationTheme {
+                VideoPlayerScreen(
+                    episodeUrl = "https://www.tamildhool.tech/fake-episode-url/",
+                    episodeTitle = "Celebrity MasterChef Tamil • Episode 12",
+                    viewModel = viewModel,
+                    onBack = { didExit = true }
+                )
+            }
+        }
+
+        composeTestRule.waitForIdle()
+
+        // Verify Quality Selector button is displayed and cycles quality
+        val qualityBtn = composeTestRule.onNodeWithTag("quality_selector_button")
+        qualityBtn.assertIsDisplayed()
+        qualityBtn.performClick()
+        composeTestRule.waitForIdle()
+
+        // Verify clicking Back button opens the Exit Confirmation Dialog instead of abruptly exiting
+        composeTestRule.onNodeWithTag("player_back_button").performClick()
+        composeTestRule.waitForIdle()
+        org.junit.Assert.assertFalse("Player should ask for confirmation before exiting", didExit)
+
+        composeTestRule.onNodeWithTag("exit_confirmation_dialog").assertIsDisplayed()
+        composeTestRule.onNodeWithTag("exit_dialog_keep_watching_btn").performClick()
+        composeTestRule.waitForIdle()
+        org.junit.Assert.assertFalse("Keep Watching should dismiss dialog without exiting", didExit)
+
+        // Open dialog again and confirm exit
+        composeTestRule.onNodeWithTag("player_back_button").performClick()
+        composeTestRule.waitForIdle()
+        composeTestRule.onNodeWithTag("exit_dialog_confirm_exit_btn").performClick()
+        composeTestRule.waitForIdle()
+        org.junit.Assert.assertTrue("Confirming exit should trigger onBack", didExit)
+    }
 }
-
-

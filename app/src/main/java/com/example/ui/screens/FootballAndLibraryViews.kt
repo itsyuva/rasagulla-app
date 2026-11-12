@@ -2,6 +2,7 @@ package com.example.ui.screens
 
 import android.Manifest
 import android.os.Build
+import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.AnimatedVisibility
@@ -73,17 +74,20 @@ fun CollapsibleTvLeftRail(
     onBrandLogoClick: () -> Unit = {}
 ) {
     var isRailExpanded by remember { mutableStateOf(false) }
+    BackHandler(enabled = isRailExpanded) {
+        isRailExpanded = false
+    }
 
     val navItems = listOf(
         Triple("Featured", "Home", Icons.Filled.Home),
-        Triple("Episodes", "Shows", Icons.Filled.Tv),
+        Triple("Episodes", "TV Shows", Icons.Filled.Tv),
         Triple("Movies", "Movies", Icons.Filled.MovieFilter),
-        Triple("Football", "Football", Icons.Filled.SportsSoccer),
-        Triple("My List", "Library", Icons.Filled.VideoLibrary)
+        Triple("Live 24/7", "24/7 Live", Icons.Filled.LiveTv),
+        Triple("My List", "My Library", Icons.Filled.VideoLibrary)
     )
 
     Surface(
-        color = Color(0xF2080A11),
+        color = Color(0xF5080A11),
         border = BorderStroke(1.dp, Color.White.copy(alpha = 0.08f)),
         modifier = Modifier
             .fillMaxHeight()
@@ -101,37 +105,39 @@ fun CollapsibleTvLeftRail(
             verticalArrangement = Arrangement.SpaceBetween,
             horizontalAlignment = if (isRailExpanded) Alignment.Start else Alignment.CenterHorizontally
         ) {
-            // Top Brand Identity (Uploaded Rasagulla Icon & Logo)
             Row(
                 verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.Center,
                 modifier = Modifier
-                    .padding(horizontal = 6.dp)
+                    .fillMaxWidth()
+                    .padding(horizontal = 4.dp, vertical = 4.dp)
+                    .clip(RoundedCornerShape(12.dp))
                     .clickable {
                         isRailExpanded = !isRailExpanded
                         onBrandLogoClick()
                     }
                     .testTag("tv_rail_brand_logo")
             ) {
-                Image(
-                    painter = painterResource(id = R.drawable.img_rasagulla_icon),
-                    contentDescription = "Rasagulla App Icon",
-                    contentScale = ContentScale.Fit,
-                    modifier = Modifier
-                        .size(40.dp)
-                        .clip(RoundedCornerShape(10.dp))
-                )
-                if (isRailExpanded) {
-                    Spacer(modifier = Modifier.width(10.dp))
+                if (!isRailExpanded) {
+                    Image(
+                        painter = painterResource(id = R.drawable.img_rasagulla_icon),
+                        contentDescription = "Rasagulla App Icon",
+                        contentScale = ContentScale.Fit,
+                        modifier = Modifier
+                            .size(40.dp)
+                            .clip(RoundedCornerShape(10.dp))
+                    )
+                } else {
                     Image(
                         painter = painterResource(id = R.drawable.img_rasagulla_logo),
                         contentDescription = "Rasagulla Logo",
                         contentScale = ContentScale.Fit,
-                        modifier = Modifier.height(34.dp)
+                        modifier = Modifier.height(46.dp)
                     )
                 }
             }
 
-            // Center Navigation Items
+            // Center Navigation Items (Single focus node per item via Surface(onClick = ...))
             Column(
                 verticalArrangement = Arrangement.spacedBy(10.dp),
                 modifier = Modifier.fillMaxWidth()
@@ -141,16 +147,17 @@ fun CollapsibleTvLeftRail(
                     var isFocused by remember { mutableStateOf(false) }
 
                     Surface(
+                        onClick = { onTabSelected(tabKey) },
                         color = when {
-                            isFocused -> CrimsonAccent.copy(alpha = 0.25f)
-                            isSelected -> Color(0xFF1A2032)
+                            isFocused -> CrimsonAccent
+                            isSelected -> Color(0xFF1D2438)
                             else -> Color.Transparent
                         },
                         shape = RoundedCornerShape(14.dp),
                         border = BorderStroke(
-                            width = if (isFocused) 2.dp else if (isSelected) 1.dp else 0.dp,
+                            width = if (isFocused) 2.5.dp else if (isSelected) 1.dp else 0.dp,
                             color = when {
-                                isFocused -> CyanAccent
+                                isFocused -> Color.White
                                 isSelected -> CrimsonAccent
                                 else -> Color.Transparent
                             }
@@ -158,13 +165,11 @@ fun CollapsibleTvLeftRail(
                         modifier = Modifier
                             .fillMaxWidth()
                             .graphicsLayer {
-                                scaleX = if (isFocused) 1.08f else 1.0f
-                                scaleY = if (isFocused) 1.08f else 1.0f
+                                scaleX = if (isFocused) 1.06f else 1.0f
+                                scaleY = if (isFocused) 1.06f else 1.0f
                             }
                             .onFocusChanged { isFocused = it.isFocused }
-                            .focusable()
-                            .clickable { onTabSelected(tabKey) }
-                            .testTag("tv_rail_tab_${label.lowercase()}")
+                            .testTag("tv_rail_tab_${label.lowercase().replace(" ", "_")}")
                     ) {
                         Row(
                             verticalAlignment = Alignment.CenterVertically,
@@ -175,7 +180,7 @@ fun CollapsibleTvLeftRail(
                                 imageVector = icon,
                                 contentDescription = label,
                                 tint = when {
-                                    isFocused -> CyanAccent
+                                    isFocused -> Color.White
                                     isSelected -> CrimsonAccent
                                     else -> SecondaryText
                                 },
@@ -185,19 +190,19 @@ fun CollapsibleTvLeftRail(
                                 Spacer(modifier = Modifier.width(14.dp))
                                 Text(
                                     text = label,
-                                    color = if (isSelected || isFocused) PrimaryText else SecondaryText,
+                                    color = if (isSelected || isFocused) Color.White else SecondaryText,
                                     fontSize = 13.5.sp,
                                     fontWeight = if (isSelected || isFocused) FontWeight.Bold else FontWeight.Medium,
                                     modifier = Modifier.weight(1f)
                                 )
                                 if (tabKey == "My List" && myListCount > 0) {
                                     Surface(
-                                        color = CrimsonAccent,
+                                        color = if (isFocused) Color.White else CrimsonAccent,
                                         shape = CircleShape
                                     ) {
                                         Text(
                                             text = "$myListCount",
-                                            color = Color.White,
+                                            color = if (isFocused) Color.Black else Color.White,
                                             fontSize = 10.sp,
                                             fontWeight = FontWeight.Bold,
                                             modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
@@ -210,21 +215,23 @@ fun CollapsibleTvLeftRail(
                 }
             }
 
-            // Bottom Search & Expand Button
+            // Bottom Search Button (Single focus node via Surface(onClick = ...))
             var isSearchFocused by remember { mutableStateOf(false) }
             Surface(
-                color = if (isSearchFocused) CyanAccent.copy(alpha = 0.2f) else Color(0xFF141826),
+                onClick = onSearchClick,
+                color = if (isSearchFocused) CyanAccent else Color(0xFF141826),
                 shape = RoundedCornerShape(12.dp),
-                border = BorderStroke(1.dp, if (isSearchFocused) CyanAccent else Color.White.copy(alpha = 0.1f)),
+                border = BorderStroke(
+                    if (isSearchFocused) 2.5.dp else 1.dp,
+                    if (isSearchFocused) Color.White else Color.White.copy(alpha = 0.1f)
+                ),
                 modifier = Modifier
                     .fillMaxWidth()
                     .graphicsLayer {
-                        scaleX = if (isSearchFocused) 1.08f else 1.0f
-                        scaleY = if (isSearchFocused) 1.08f else 1.0f
+                        scaleX = if (isSearchFocused) 1.06f else 1.0f
+                        scaleY = if (isSearchFocused) 1.06f else 1.0f
                     }
                     .onFocusChanged { isSearchFocused = it.isFocused }
-                    .focusable()
-                    .clickable { onSearchClick() }
             ) {
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
@@ -233,17 +240,17 @@ fun CollapsibleTvLeftRail(
                 ) {
                     Icon(
                         imageVector = Icons.Filled.Search,
-                        contentDescription = "Search & Phone Remote",
-                        tint = CyanAccent,
+                        contentDescription = "Search Shows & Movies",
+                        tint = if (isSearchFocused) Color.Black else CyanAccent,
                         modifier = Modifier.size(20.dp)
                     )
                     if (isRailExpanded) {
                         Spacer(modifier = Modifier.width(10.dp))
                         Text(
-                            text = "Search / Remote",
-                            color = PrimaryText,
-                            fontSize = 12.sp,
-                            fontWeight = FontWeight.SemiBold
+                            text = "Search",
+                            color = if (isSearchFocused) Color.Black else PrimaryText,
+                            fontSize = 12.5.sp,
+                            fontWeight = FontWeight.Bold
                         )
                     }
                 }
@@ -253,10 +260,12 @@ fun CollapsibleTvLeftRail(
 }
 
 /**
- * Dedicated Football Streaming Tab:
- * - Concurrent Match Harvester across streamed.st/category/football, timst.top/streams, streamcorner.st, ppv.st
- * - Match Fixture Aggregation grouped by Tournament (Premier League, UEFA Champions League, La Liga, Serie A, ISL)
- * - Bitrate & Mirror Quick-Selector (1080p 60fps, 720p 30fps) with live ping latency checks & WebRTC P2P peer mesh status
+ * FotMob-Style Football Scores & Highlights Hub:
+ * - Covers Big 5 European Leagues (Premier League, La Liga, Serie A, Bundesliga, Ligue 1)
+ *   + UEFA European Competitions (UCL, UEL, Conference League)
+ * - Clickable match results with goalscorers breakdown and FotMob-style stat comparison bars
+ * - 1-Tap playback of official match highlights from Stadium Astro, YouTube, LaLiga & Serie A Official
+ * - 10-foot TV D-Pad remote optimized with 1.04x focus scaling and glowing borders
  */
 @Composable
 fun FootballLiveHubView(
@@ -269,17 +278,21 @@ fun FootballLiveHubView(
     onPlayMirror: (FootballMatch, FootballStreamMirror) -> Unit
 ) {
     val tournaments = listOf(
-        "All Tournaments",
+        "All Leagues",
         "Premier League",
-        "UEFA Champions League",
         "La Liga",
         "Serie A",
         "Bundesliga",
-        "Indian Super League"
+        "Ligue 1",
+        "UEFA Champions League",
+        "UEFA Europa League",
+        "UEFA Conference League"
     )
 
+    var selectedMatchForDetails by remember { mutableStateOf<FootballMatch?>(null) }
+
     val filteredMatches = remember(matches, selectedTournament) {
-        if (selectedTournament == "All Tournaments") {
+        if (selectedTournament == "All Leagues" || selectedTournament == "All Tournaments") {
             matches
         } else {
             matches.filter { it.tournament.equals(selectedTournament, ignoreCase = true) }
@@ -290,310 +303,406 @@ fun FootballLiveHubView(
         filteredMatches.groupBy { it.tournament }
     }
 
-    LazyColumn(
-        modifier = Modifier
-            .fillMaxSize()
-            .testTag("football_hub_list"),
-        contentPadding = PaddingValues(bottom = 110.dp)
-    ) {
-        // Minimalist Apple TV Sports Header
-        item {
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 20.dp, vertical = 16.dp),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Column {
-                    Text(
-                        text = "Live Football",
-                        color = PrimaryText,
-                        fontSize = 26.sp,
-                        fontWeight = FontWeight.Black,
-                        letterSpacing = (-0.5).sp
-                    )
-                    Spacer(modifier = Modifier.height(2.dp))
-                    Text(
-                        text = "${matches.count { it.isLive }} Live Now • Verified 1080p 60fps Feeds",
-                        color = SecondaryText,
-                        fontSize = 13.sp,
-                        fontWeight = FontWeight.Medium
-                    )
-                }
-
-                IconButton(
-                    onClick = onRefreshMatches,
+    Box(modifier = Modifier.fillMaxSize()) {
+        LazyColumn(
+            modifier = Modifier
+                .fillMaxSize()
+                .testTag("football_hub_list"),
+            contentPadding = PaddingValues(bottom = 110.dp)
+        ) {
+            // FotMob Sports Header
+            item {
+                Row(
                     modifier = Modifier
-                        .size(40.dp)
-                        .clip(CircleShape)
-                        .background(Color.White.copy(alpha = 0.08f))
-                        .testTag("football_refresh_button")
+                        .fillMaxWidth()
+                        .padding(horizontal = 20.dp, vertical = 16.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Icon(
-                        imageVector = Icons.Filled.Refresh,
-                        contentDescription = "Refresh Live Matches",
-                        tint = PrimaryText
-                    )
-                }
-            }
-        }
-
-        // Tournament Selector Chips
-        item {
-            LazyRow(
-                contentPadding = PaddingValues(horizontal = 18.dp, vertical = 6.dp),
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                items(tournaments) { tourney ->
-                    val isSelected = tourney == selectedTournament
-                    var isFocused by remember { mutableStateOf(false) }
-                    Surface(
-                        color = when {
-                            isSelected -> PrimaryText
-                            isFocused -> Color(0xFF283046)
-                            else -> Color.White.copy(alpha = 0.07f)
-                        },
-                        shape = RoundedCornerShape(22.dp),
-                        border = BorderStroke(
-                            1.dp,
-                            if (isFocused) CyanAccent else Color.Transparent
-                        ),
-                        modifier = Modifier
-                            .graphicsLayer {
-                                scaleX = if (isFocused) 1.06f else 1.0f
-                                scaleY = if (isFocused) 1.06f else 1.0f
+                    Column {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            Text(
+                                text = "Football Scores & Results",
+                                color = PrimaryText,
+                                fontSize = 24.sp,
+                                fontWeight = FontWeight.Black,
+                                letterSpacing = (-0.5).sp
+                            )
+                            Surface(
+                                color = EmeraldAccent.copy(alpha = 0.2f),
+                                shape = RoundedCornerShape(6.dp),
+                                border = BorderStroke(1.dp, EmeraldAccent.copy(alpha = 0.6f))
+                            ) {
+                                Text(
+                                    text = "FOTMOB",
+                                    color = EmeraldAccent,
+                                    fontSize = 10.sp,
+                                    fontWeight = FontWeight.Black,
+                                    modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                                )
                             }
-                            .onFocusChanged { isFocused = it.isFocused }
-                            .focusable()
-                            .clickable { onSelectTournament(tourney) }
-                    ) {
+                        }
+                        Spacer(modifier = Modifier.height(3.dp))
                         Text(
-                            text = tourney,
-                            color = if (isSelected) Color.Black else PrimaryText,
-                            fontSize = 13.sp,
-                            fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
-                            modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
+                            text = "Big 5 Leagues • UCL • UEL • Conference League • Match Stats",
+                            color = SecondaryText,
+                            fontSize = 12.5.sp,
+                            fontWeight = FontWeight.Medium
+                        )
+                    }
+
+                    IconButton(
+                        onClick = onRefreshMatches,
+                        modifier = Modifier
+                            .size(40.dp)
+                            .clip(CircleShape)
+                            .background(Color.White.copy(alpha = 0.08f))
+                            .testTag("football_refresh_button")
+                    ) {
+                        Icon(
+                            imageVector = Icons.Filled.Refresh,
+                            contentDescription = "Refresh Scores & Highlights",
+                            tint = PrimaryText
                         )
                     }
                 }
             }
-        }
 
-        // Competition Sections & Live Fixtures
-        groupedByTournament.forEach { (tournamentName, tourneyMatches) ->
-            item(key = "header_$tournamentName") {
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 20.dp, vertical = 12.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.SpaceBetween
+            // Tournament Filter Chips (D-Pad remote friendly)
+            item {
+                LazyRow(
+                    contentPadding = PaddingValues(horizontal = 18.dp, vertical = 6.dp),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
-                    Text(
-                        text = tournamentName,
-                        color = PrimaryText,
-                        fontSize = 17.sp,
-                        fontWeight = FontWeight.Bold
-                    )
-                    Text(
-                        text = "${tourneyMatches.size} ${if (tourneyMatches.size == 1) "Match" else "Matches"}",
-                        color = SecondaryText,
-                        fontSize = 12.sp,
-                        fontWeight = FontWeight.Medium
-                    )
+                    items(tournaments) { tourney ->
+                        val isSelected = tourney == selectedTournament ||
+                                (tourney == "All Leagues" && selectedTournament == "All Tournaments")
+                        var isChipFocused by remember { mutableStateOf(false) }
+
+                        Surface(
+                            color = when {
+                                isSelected -> PrimaryText
+                                isChipFocused -> Color(0xFF283046)
+                                else -> Color.White.copy(alpha = 0.07f)
+                            },
+                            shape = RoundedCornerShape(22.dp),
+                            border = BorderStroke(
+                                1.dp,
+                                if (isChipFocused) CyanAccent else Color.Transparent
+                            ),
+                            modifier = Modifier
+                                .graphicsLayer {
+                                    scaleX = if (isChipFocused) 1.06f else 1.0f
+                                    scaleY = if (isChipFocused) 1.06f else 1.0f
+                                }
+                                .onFocusChanged { isChipFocused = it.isFocused }
+                                .focusable()
+                                .clickable { onSelectTournament(tourney) }
+                                .testTag("football_league_chip_${tourney.lowercase().replace(" ", "_")}")
+                        ) {
+                            Text(
+                                text = tourney,
+                                color = if (isSelected) Color.Black else PrimaryText,
+                                fontSize = 12.5.sp,
+                                fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
+                                modifier = Modifier.padding(horizontal = 14.dp, vertical = 8.dp)
+                            )
+                        }
+                    }
                 }
             }
 
-            items(tourneyMatches, key = { it.id }) { match ->
-                FootballFixtureCard(
-                    match = match,
-                    onPlayMirror = { mirror -> onPlayMirror(match, mirror) }
-                )
+            // Grouped Match Sections
+            groupedByTournament.forEach { (tournamentName, tourneyMatches) ->
+                item(key = "header_$tournamentName") {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 20.dp, vertical = 14.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            Box(
+                                modifier = Modifier
+                                    .size(8.dp)
+                                    .background(CyanAccent, CircleShape)
+                            )
+                            Text(
+                                text = tournamentName,
+                                color = PrimaryText,
+                                fontSize = 16.5.sp,
+                                fontWeight = FontWeight.Bold
+                            )
+                        }
+                        Text(
+                            text = "${tourneyMatches.size} ${if (tourneyMatches.size == 1) "Fixture" else "Fixtures"}",
+                            color = SecondaryText,
+                            fontSize = 12.sp,
+                            fontWeight = FontWeight.Medium
+                        )
+                    }
+                }
+
+                items(tourneyMatches, key = { it.id }) { match ->
+                    FotMobMatchCard(
+                        match = match,
+                        onPlayLiveStream = { mirror -> onPlayMirror(match, mirror) },
+                        onOpenDetails = { selectedMatchForDetails = match }
+                    )
+                }
             }
+        }
+
+        // FotMob Match Detail Modal Dialog
+        selectedMatchForDetails?.let { match ->
+            FotMobMatchDetailDialog(
+                match = match,
+                onPlayMirror = { mirror ->
+                    selectedMatchForDetails = null
+                    onPlayMirror(match, mirror)
+                },
+                onDismiss = { selectedMatchForDetails = null }
+            )
         }
     }
 }
 
+/**
+ * FotMob-style Match Fixture Card:
+ * - Shows Home vs Away with club badges, bold score, kickoff status, and goalscorers summary
+ * - 1-Tap "Watch Live" stream button powered by ppv.st & streamed.st live embeds
+ * - Tapping card or "Stats" opens comprehensive FotMob result sheet with stats & goal timeline
+ */
 @Composable
-private fun FootballFixtureCard(
+private fun FotMobMatchCard(
     match: FootballMatch,
-    onPlayMirror: (FootballStreamMirror) -> Unit
+    onPlayLiveStream: (FootballStreamMirror) -> Unit,
+    onOpenDetails: () -> Unit
 ) {
     var isCardFocused by remember { mutableStateOf(false) }
-    val primaryMirror = match.mirrors.firstOrNull()
 
     Surface(
-        color = Color(0xFF10131C),
+        color = Color(0xFF101420),
         shape = RoundedCornerShape(20.dp),
         border = BorderStroke(
             if (isCardFocused) 2.dp else 1.dp,
-            if (isCardFocused) Color.White else Color.White.copy(alpha = 0.08f)
+            if (isCardFocused) CyanAccent else Color.White.copy(alpha = 0.08f)
         ),
         modifier = Modifier
             .fillMaxWidth()
-            .padding(horizontal = 18.dp, vertical = 8.dp)
+            .padding(horizontal = 16.dp, vertical = 6.dp)
             .graphicsLayer {
                 scaleX = if (isCardFocused) 1.02f else 1.0f
                 scaleY = if (isCardFocused) 1.02f else 1.0f
             }
             .onFocusChanged { isCardFocused = it.isFocused }
             .focusable()
-            .clickable {
-                if (primaryMirror != null) {
-                    onPlayMirror(primaryMirror)
-                }
-            }
+            .clickable { onOpenDetails() }
             .testTag("football_match_card_${match.id}")
     ) {
-        Column(modifier = Modifier.fillMaxWidth()) {
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(144.dp)
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(16.dp)
+        ) {
+            // Top Row: Tournament & Match Status Badge
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
             ) {
-                if (match.backdropUrl.isNotBlank()) {
-                    AsyncImage(
-                        model = match.backdropUrl,
-                        contentDescription = "${match.homeTeam} vs ${match.awayTeam}",
-                        contentScale = ContentScale.Crop,
-                        modifier = Modifier.fillMaxSize()
-                    )
-                }
-                Box(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .background(
-                            Brush.verticalGradient(
-                                listOf(
-                                    Color(0x6606070B),
-                                    Color(0xF210131C)
-                                )
-                            )
-                        )
+                Text(
+                    text = "${match.tournament} • ${match.venue.substringBefore(",")}",
+                    color = SecondaryText,
+                    fontSize = 11.5.sp,
+                    fontWeight = FontWeight.Medium,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.weight(1f)
                 )
 
-                // Top Row: Live Status Pill & Venue
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(14.dp),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
+                Surface(
+                    color = if (match.isLive) CrimsonAccent.copy(alpha = 0.22f) else Color(0x33283046),
+                    shape = RoundedCornerShape(50),
+                    border = BorderStroke(1.dp, if (match.isLive) CrimsonAccent else Color.White.copy(alpha = 0.15f))
                 ) {
-                    Surface(
-                        color = if (match.isLive) CrimsonAccent else Color.White.copy(alpha = 0.16f),
-                        shape = RoundedCornerShape(6.dp)
-                    ) {
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
-                        ) {
-                            if (match.isLive) {
-                                Box(
-                                    modifier = Modifier
-                                        .size(6.dp)
-                                        .clip(CircleShape)
-                                        .background(Color.White)
-                                )
-                                Spacer(modifier = Modifier.width(5.dp))
-                            }
-                            Text(
-                                text = match.kickoffTime,
-                                color = Color.White,
-                                fontSize = 10.5.sp,
-                                fontWeight = FontWeight.Bold
-                            )
-                        }
-                    }
-
                     Text(
-                        text = match.venue,
-                        color = SecondaryText,
-                        fontSize = 11.5.sp,
+                        text = if (match.isLive) "● LIVE  ${match.kickoffTime}" else match.kickoffTime,
+                        color = if (match.isLive) CrimsonAccent else PrimaryText,
+                        fontSize = 10.5.sp,
+                        fontWeight = FontWeight.Bold,
+                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 3.dp)
+                    )
+                }
+            }
+
+            Spacer(modifier = Modifier.height(14.dp))
+
+            // Scoreboard Row
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                // Home Team
+                Row(
+                    modifier = Modifier.weight(1f),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.Start
+                ) {
+                    TeamInitialsBadge(teamName = match.homeTeam, isHome = true)
+                    Spacer(modifier = Modifier.width(10.dp))
+                    Text(
+                        text = match.homeTeam,
+                        color = PrimaryText,
+                        fontSize = 15.sp,
+                        fontWeight = FontWeight.Bold,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis
                     )
                 }
 
-                // Center Scoreboard
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .align(Alignment.BottomCenter)
-                        .padding(horizontal = 18.dp, vertical = 14.dp),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
+                // Center Score
+                Surface(
+                    color = Color(0xFF181F2E),
+                    shape = RoundedCornerShape(12.dp),
+                    border = BorderStroke(1.dp, Color.White.copy(alpha = 0.12f)),
+                    modifier = Modifier.padding(horizontal = 10.dp)
                 ) {
                     Text(
-                        text = match.homeTeam,
+                        text = match.scoreOrStatus,
                         color = PrimaryText,
-                        fontSize = 18.sp,
-                        fontWeight = FontWeight.Bold,
-                        modifier = Modifier.weight(1f)
+                        fontSize = 17.sp,
+                        fontWeight = FontWeight.Black,
+                        modifier = Modifier.padding(horizontal = 14.dp, vertical = 6.dp)
                     )
+                }
 
-                    Surface(
-                        color = Color(0xCC06080E),
-                        shape = RoundedCornerShape(10.dp),
-                        border = BorderStroke(1.dp, Color.White.copy(alpha = 0.14f))
-                    ) {
-                        Text(
-                            text = match.scoreOrStatus,
-                            color = PrimaryText,
-                            fontSize = 16.sp,
-                            fontWeight = FontWeight.Black,
-                            modifier = Modifier.padding(horizontal = 14.dp, vertical = 6.dp)
-                        )
-                    }
-
+                // Away Team
+                Row(
+                    modifier = Modifier.weight(1f),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.End
+                ) {
                     Text(
                         text = match.awayTeam,
                         color = PrimaryText,
-                        fontSize = 18.sp,
+                        fontSize = 15.sp,
                         fontWeight = FontWeight.Bold,
-                        textAlign = androidx.compose.ui.text.style.TextAlign.End,
-                        modifier = Modifier.weight(1f)
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                    Spacer(modifier = Modifier.width(10.dp))
+                    TeamInitialsBadge(teamName = match.awayTeam, isHome = false)
+                }
+            }
+
+            // Goalscorers Summary Preview (FotMob style)
+            if (match.goalScorers.isNotEmpty()) {
+                Spacer(modifier = Modifier.height(10.dp))
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .background(Color(0x33000000), RoundedCornerShape(10.dp))
+                        .padding(horizontal = 12.dp, vertical = 7.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = match.goalScorers.joinToString("  •  "),
+                        color = SecondaryText,
+                        fontSize = 11.5.sp,
+                        fontWeight = FontWeight.Medium,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
                     )
                 }
             }
 
-            // Stream Mirror Quick-Selector Pills
-            LazyRow(
-                contentPadding = PaddingValues(horizontal = 14.dp, vertical = 10.dp),
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            Spacer(modifier = Modifier.height(12.dp))
+
+            // Footer Row: Possession Info + Live Stream & Stats Action Buttons
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
             ) {
-                items(match.mirrors, key = { it.id }) { mirror ->
-                    var isMirrorFocused by remember { mutableStateOf(false) }
-                    Surface(
-                        color = if (isMirrorFocused) PrimaryText else Color.White.copy(alpha = 0.07f),
-                        shape = RoundedCornerShape(10.dp),
-                        modifier = Modifier
-                            .graphicsLayer {
-                                scaleX = if (isMirrorFocused) 1.05f else 1.0f
-                                scaleY = if (isMirrorFocused) 1.05f else 1.0f
+                Text(
+                    text = if (match.homeStats.isNotEmpty()) {
+                        "Possession ${match.homeStats["Possession"] ?: "50%"} • ${match.awayStats["Possession"] ?: "50%"}"
+                    } else {
+                        "Live HD Stream & Match Report"
+                    },
+                    color = SecondaryText,
+                    fontSize = 11.5.sp,
+                    fontWeight = FontWeight.Medium,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.weight(1f)
+                )
+
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    val primaryMirror = match.mirrors.firstOrNull()
+                    if (primaryMirror != null) {
+                        Surface(
+                            onClick = { onPlayLiveStream(primaryMirror) },
+                            color = PrimaryText,
+                            shape = RoundedCornerShape(50),
+                            modifier = Modifier.testTag("football_watch_live_btn_${match.id}")
+                        ) {
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp)
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Filled.PlayArrow,
+                                    contentDescription = "Watch Live Stream",
+                                    tint = Color.Black,
+                                    modifier = Modifier.size(15.dp)
+                                )
+                                Spacer(modifier = Modifier.width(4.dp))
+                                Text(
+                                    text = "Watch Live",
+                                    color = Color.Black,
+                                    fontSize = 11.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    maxLines = 1,
+                                    softWrap = false
+                                )
                             }
-                            .onFocusChanged { isMirrorFocused = it.isFocused }
-                            .focusable()
-                            .clickable { onPlayMirror(mirror) }
-                            .testTag("football_mirror_${mirror.id}")
+                        }
+                    }
+
+                    Surface(
+                        onClick = onOpenDetails,
+                        color = Color.White.copy(alpha = 0.08f),
+                        shape = RoundedCornerShape(50),
+                        border = BorderStroke(1.dp, Color.White.copy(alpha = 0.18f)),
+                        modifier = Modifier.testTag("football_details_btn_${match.id}")
                     ) {
                         Row(
                             verticalAlignment = Alignment.CenterVertically,
-                            modifier = Modifier.padding(horizontal = 12.dp, vertical = 7.dp)
+                            modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp)
                         ) {
                             Icon(
-                                imageVector = Icons.Filled.PlayArrow,
-                                contentDescription = "Play ${mirror.quality}",
-                                tint = if (isMirrorFocused) Color.Black else EmeraldAccent,
-                                modifier = Modifier.size(16.dp)
+                                imageVector = Icons.Filled.BarChart,
+                                contentDescription = "View Match Stats",
+                                tint = CyanAccent,
+                                modifier = Modifier.size(14.dp)
                             )
-                            Spacer(modifier = Modifier.width(6.dp))
+                            Spacer(modifier = Modifier.width(5.dp))
                             Text(
-                                text = "${mirror.quality} • ${mirror.originPortal} (${mirror.pingMs}ms)",
-                                color = if (isMirrorFocused) Color.Black else PrimaryText,
-                                fontSize = 11.5.sp,
-                                fontWeight = FontWeight.SemiBold
+                                text = "Stats",
+                                color = PrimaryText,
+                                fontSize = 11.sp,
+                                fontWeight = FontWeight.SemiBold,
+                                maxLines = 1,
+                                softWrap = false
                             )
                         }
                     }
@@ -604,11 +713,382 @@ private fun FootballFixtureCard(
 }
 
 /**
- * Unified Library Hub ("My List" / Library Tab):
- * 1. Cross-Device Continuity & Ecosystem Sync (Local Network Handoff + Phone as Virtual Remote & Keyboard)
- * 2. Smart Episode Calendar (Star Vijay, Zee Tamil, Sun TV, Sony Vizha) with Verified Live Push Notifications
- * 3. Offline Chunked Downloader (.TS -> .MP4) with progress & offline playback
- * 4. Saved Watchlist (My List)
+ * FotMob Club Avatar Badge with 3-letter abbreviation & Club Theme Color
+ */
+@Composable
+private fun TeamInitialsBadge(teamName: String, isHome: Boolean) {
+    val abbreviation = remember(teamName) {
+        val parts = teamName.split(" ")
+        if (parts.size >= 2) {
+            (parts[0].take(1) + parts[1].take(2)).uppercase()
+        } else {
+            teamName.take(3).uppercase()
+        }
+    }
+
+    val badgeColor = remember(teamName) {
+        when {
+            teamName.contains("Arsenal", ignoreCase = true) -> Color(0xFFEF0107)
+            teamName.contains("Chelsea", ignoreCase = true) -> Color(0xFF034694)
+            teamName.contains("City", ignoreCase = true) -> Color(0xFF6CABDD)
+            teamName.contains("Liverpool", ignoreCase = true) -> Color(0xFFC8102E)
+            teamName.contains("United", ignoreCase = true) -> Color(0xFFDA291C)
+            teamName.contains("Real Madrid", ignoreCase = true) -> Color(0xFFFEE100)
+            teamName.contains("Barcelona", ignoreCase = true) -> Color(0xFFA50044)
+            teamName.contains("Inter", ignoreCase = true) -> Color(0xFF001EA0)
+            teamName.contains("Juventus", ignoreCase = true) -> Color(0xFFFFFFFF)
+            teamName.contains("Milan", ignoreCase = true) -> Color(0xFFFB090B)
+            teamName.contains("Bayern", ignoreCase = true) -> Color(0xFFDC052D)
+            teamName.contains("Dortmund", ignoreCase = true) -> Color(0xFFFDE100)
+            teamName.contains("PSG", ignoreCase = true) || teamName.contains("Paris", ignoreCase = true) -> Color(0xFF004170)
+            else -> if (isHome) CyanAccent else GoldAccent
+        }
+    }
+
+    Box(
+        contentAlignment = Alignment.Center,
+        modifier = Modifier
+            .size(32.dp)
+            .background(badgeColor.copy(alpha = 0.25f), CircleShape)
+            .border(1.5.dp, badgeColor, CircleShape)
+    ) {
+        Text(
+            text = abbreviation,
+            color = PrimaryText,
+            fontSize = 10.5.sp,
+            fontWeight = FontWeight.Black
+        )
+    }
+}
+
+/**
+ * Comprehensive FotMob Match Results & Statistics Dialog
+ * - Full goalscorer timeline with minute markers
+ * - Live Stream server selector buttons (PPV.ST & Streamed.st)
+ * - Dual-color horizontal comparison progress bars for possession, shots, xG, corners, fouls
+ */
+@Composable
+private fun FotMobMatchDetailDialog(
+    match: FootballMatch,
+    onPlayMirror: (FootballStreamMirror) -> Unit,
+    onDismiss: () -> Unit
+) {
+    BackHandler { onDismiss() }
+
+    androidx.compose.ui.window.Dialog(onDismissRequest = onDismiss) {
+        Surface(
+            color = Color(0xFF0C101A),
+            shape = RoundedCornerShape(24.dp),
+            border = BorderStroke(1.dp, Color.White.copy(alpha = 0.18f)),
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(vertical = 16.dp)
+                .testTag("fotmob_match_dialog")
+        ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(20.dp)
+            ) {
+                // Header: Tournament + Close Button
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            text = match.tournament.uppercase(),
+                            color = CyanAccent,
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.Bold,
+                            letterSpacing = 0.8.sp
+                        )
+                        Text(
+                            text = match.venue,
+                            color = SecondaryText,
+                            fontSize = 12.sp,
+                            fontWeight = FontWeight.Medium,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                    }
+
+                    IconButton(
+                        onClick = onDismiss,
+                        modifier = Modifier
+                            .size(34.dp)
+                            .clip(CircleShape)
+                            .background(Color.White.copy(alpha = 0.08f))
+                    ) {
+                        Icon(
+                            imageVector = Icons.Filled.Close,
+                            contentDescription = "Close Match Details",
+                            tint = PrimaryText,
+                            modifier = Modifier.size(18.dp)
+                        )
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(14.dp))
+
+                // Scoreboard Banner
+                Surface(
+                    color = Color(0xFF141A28),
+                    shape = RoundedCornerShape(16.dp),
+                    border = BorderStroke(1.dp, Color.White.copy(alpha = 0.1f)),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Column(
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        modifier = Modifier.padding(16.dp)
+                    ) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.SpaceEvenly
+                        ) {
+                            // Home
+                            Column(
+                                horizontalAlignment = Alignment.CenterHorizontally,
+                                modifier = Modifier.weight(1f)
+                            ) {
+                                TeamInitialsBadge(teamName = match.homeTeam, isHome = true)
+                                Spacer(modifier = Modifier.height(6.dp))
+                                Text(
+                                    text = match.homeTeam,
+                                    color = PrimaryText,
+                                    fontSize = 13.5.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis
+                                )
+                            }
+
+                            // Big Score
+                            Column(
+                                horizontalAlignment = Alignment.CenterHorizontally,
+                                modifier = Modifier.padding(horizontal = 8.dp)
+                            ) {
+                                Text(
+                                    text = match.scoreOrStatus,
+                                    color = PrimaryText,
+                                    fontSize = 28.sp,
+                                    fontWeight = FontWeight.Black,
+                                    letterSpacing = 1.sp
+                                )
+                                Text(
+                                    text = match.kickoffTime,
+                                    color = EmeraldAccent,
+                                    fontSize = 11.sp,
+                                    fontWeight = FontWeight.Bold
+                                )
+                            }
+
+                            // Away
+                            Column(
+                                horizontalAlignment = Alignment.CenterHorizontally,
+                                modifier = Modifier.weight(1f)
+                            ) {
+                                TeamInitialsBadge(teamName = match.awayTeam, isHome = false)
+                                Spacer(modifier = Modifier.height(6.dp))
+                                Text(
+                                    text = match.awayTeam,
+                                    color = PrimaryText,
+                                    fontSize = 13.5.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis
+                                )
+                            }
+                        }
+                    }
+                }
+
+                // Live Match Stream Mirrors (PPV.ST & Streamed.st)
+                if (match.mirrors.isNotEmpty()) {
+                    Spacer(modifier = Modifier.height(14.dp))
+                    Text(
+                        text = "WATCH LIVE STREAM",
+                        color = Color.White.copy(alpha = 0.6f),
+                        fontSize = 11.sp,
+                        fontWeight = FontWeight.Bold,
+                        letterSpacing = 0.8.sp
+                    )
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Row(
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        match.mirrors.take(3).forEachIndexed { index, mirror ->
+                            val isPrimary = index == 0
+                            Surface(
+                                onClick = { onPlayMirror(mirror) },
+                                color = if (isPrimary) PrimaryText else Color(0xFF1A2234),
+                                shape = RoundedCornerShape(50),
+                                border = BorderStroke(
+                                    1.dp,
+                                    if (isPrimary) PrimaryText else Color.White.copy(alpha = 0.16f)
+                                ),
+                                modifier = Modifier.weight(1f)
+                            ) {
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.Center,
+                                    modifier = Modifier.padding(horizontal = 10.dp, vertical = 9.dp)
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Filled.PlayArrow,
+                                        contentDescription = mirror.label,
+                                        tint = if (isPrimary) Color.Black else PrimaryText,
+                                        modifier = Modifier.size(15.dp)
+                                    )
+                                    Spacer(modifier = Modifier.width(4.dp))
+                                    Text(
+                                        text = if (index == 0) "Live HD 1" else "Server ${index + 1}",
+                                        color = if (isPrimary) Color.Black else PrimaryText,
+                                        fontSize = 11.5.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        maxLines = 1,
+                                        overflow = TextOverflow.Ellipsis
+                                    )
+                                }
+                            }
+                        }
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(14.dp))
+
+                // Goalscorers Breakdown
+                if (match.goalScorers.isNotEmpty()) {
+                    Text(
+                        text = "GOALSCORERS",
+                        color = Color.White.copy(alpha = 0.6f),
+                        fontSize = 11.sp,
+                        fontWeight = FontWeight.Bold,
+                        letterSpacing = 0.8.sp
+                    )
+                    Spacer(modifier = Modifier.height(6.dp))
+                    Column(
+                        verticalArrangement = Arrangement.spacedBy(4.dp),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .background(Color(0xFF141A28), RoundedCornerShape(12.dp))
+                            .padding(12.dp)
+                    ) {
+                        match.goalScorers.forEach { scorer ->
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Text(
+                                    text = scorer,
+                                    color = PrimaryText,
+                                    fontSize = 12.5.sp,
+                                    fontWeight = FontWeight.SemiBold
+                                )
+                            }
+                        }
+                    }
+                    Spacer(modifier = Modifier.height(14.dp))
+                }
+
+                // Match Statistics Bars (FotMob Style)
+                if (match.homeStats.isNotEmpty() && match.awayStats.isNotEmpty()) {
+                    Text(
+                        text = "MATCH STATISTICS",
+                        color = Color.White.copy(alpha = 0.6f),
+                        fontSize = 11.sp,
+                        fontWeight = FontWeight.Bold,
+                        letterSpacing = 0.8.sp
+                    )
+                    Spacer(modifier = Modifier.height(8.dp))
+
+                    val statKeys = listOf("Possession", "Shots", "Shots on Target", "xG", "Corners", "Fouls")
+                    Column(
+                        verticalArrangement = Arrangement.spacedBy(10.dp),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .background(Color(0xFF141A28), RoundedCornerShape(12.dp))
+                            .padding(14.dp)
+                    ) {
+                        statKeys.forEach { key ->
+                            val homeVal = match.homeStats[key] ?: "-"
+                            val awayVal = match.awayStats[key] ?: "-"
+                            FotMobStatRow(label = key, homeVal = homeVal, awayVal = awayVal)
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+/**
+ * FotMob Stat Comparison Row with Dual Horizontal Progress Bars
+ */
+@Composable
+private fun FotMobStatRow(label: String, homeVal: String, awayVal: String) {
+    val homeNum = homeVal.replace("%", "").toFloatOrNull() ?: 50f
+    val awayNum = awayVal.replace("%", "").toFloatOrNull() ?: 50f
+    val total = (homeNum + awayNum).coerceAtLeast(1f)
+    val homeRatio = (homeNum / total).coerceIn(0.1f, 0.9f)
+
+    Column(modifier = Modifier.fillMaxWidth()) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(
+                text = homeVal,
+                color = PrimaryText,
+                fontSize = 12.sp,
+                fontWeight = FontWeight.Bold
+            )
+            Text(
+                text = label,
+                color = SecondaryText,
+                fontSize = 11.sp,
+                fontWeight = FontWeight.Medium
+            )
+            Text(
+                text = awayVal,
+                color = PrimaryText,
+                fontSize = 12.sp,
+                fontWeight = FontWeight.Bold
+            )
+        }
+        Spacer(modifier = Modifier.height(4.dp))
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(4.dp)
+                .clip(CircleShape)
+                .background(Color(0xFF222B3D))
+        ) {
+            Box(
+                modifier = Modifier
+                    .weight(homeRatio)
+                    .fillMaxHeight()
+                    .background(CyanAccent)
+            )
+            Spacer(modifier = Modifier.width(2.dp))
+            Box(
+                modifier = Modifier
+                    .weight(1f - homeRatio)
+                    .fillMaxHeight()
+                    .background(GoldAccent)
+            )
+        }
+    }
+}
+
+/**
+ * Apple TV+ Inspired Family Library Hub ("My List" / Library Tab):
+ * Designed for effortless everyday use by Mom & family:
+ * 1. My Saved Shows & Movies (Watchlist) right at the top with large thumbnails & 1-tap Play
+ * 2. Today's TV Serial Timings (Star Vijay, Zee Tamil, Sun TV, Sony Vizha) with simple reminder bells
+ * 3. Saved to Watch Offline (Simple 1-tap episode saver without technical jargon)
+ * 4. Watch on Living Room TV (Simple 1-tap TV handoff & TV keyboard)
  */
 @Composable
 fun UnifiedLibraryHubView(
@@ -653,151 +1133,186 @@ fun UnifiedLibraryHubView(
             .testTag("unified_library_hub"),
         contentPadding = PaddingValues(bottom = 110.dp)
     ) {
-        // 1. Cross-Device Continuity & Ecosystem Sync Banner
+        // Clean Apple TV+ Library Header
         item {
-            Surface(
-                color = CardSurface,
-                shape = RoundedCornerShape(20.dp),
-                border = BorderStroke(1.dp, CyanAccent.copy(alpha = 0.4f)),
+            Column(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 16.dp, vertical = 10.dp)
-                    .testTag("continuity_handoff_card")
+                    .padding(horizontal = 20.dp, vertical = 16.dp)
             ) {
-                Column(modifier = Modifier.padding(16.dp)) {
+                Text(
+                    text = "Library & TV Guide",
+                    color = PrimaryText,
+                    fontSize = 26.sp,
+                    fontWeight = FontWeight.Black,
+                    letterSpacing = (-0.5).sp
+                )
+                Spacer(modifier = Modifier.height(4.dp))
+                Text(
+                    text = "Your saved serials, daily TV timings & offline episodes",
+                    color = SecondaryText,
+                    fontSize = 13.5.sp,
+                    fontWeight = FontWeight.Medium
+                )
+            }
+        }
+
+        // 1. My Saved Shows & Movies (Watchlist) — First & easiest to reach!
+        item {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 20.dp, vertical = 8.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    Icon(
+                        imageVector = Icons.Filled.Bookmark,
+                        contentDescription = null,
+                        tint = GoldAccent,
+                        modifier = Modifier.size(20.dp)
+                    )
+                    Text(
+                        text = "My Saved Shows & Movies",
+                        color = PrimaryText,
+                        fontSize = 18.sp,
+                        fontWeight = FontWeight.Bold
+                    )
+                }
+                if (myList.isNotEmpty()) {
+                    Text(
+                        text = "${myList.size} Saved",
+                        color = SecondaryText,
+                        fontSize = 12.5.sp,
+                        fontWeight = FontWeight.SemiBold
+                    )
+                }
+            }
+        }
+
+        if (myList.isEmpty()) {
+            item {
+                Surface(
+                    color = Color(0xFF101522),
+                    shape = RoundedCornerShape(18.dp),
+                    border = BorderStroke(1.dp, Color.White.copy(alpha = 0.08f)),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp, vertical = 6.dp)
+                ) {
                     Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
+                        modifier = Modifier.padding(18.dp),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
+                        Box(
+                            contentAlignment = Alignment.Center,
+                            modifier = Modifier
+                                .size(44.dp)
+                                .background(GoldAccent.copy(alpha = 0.14f), CircleShape)
+                        ) {
                             Icon(
-                                imageVector = Icons.Filled.CastConnected,
-                                contentDescription = "Cross-Device Continuity",
-                                tint = CyanAccent,
-                                modifier = Modifier.size(20.dp)
-                            )
-                            Spacer(modifier = Modifier.width(8.dp))
-                            Text(
-                                text = "CROSS-DEVICE CONTINUITY & LAN HANDOFF",
-                                color = CyanAccent,
-                                fontSize = 11.sp,
-                                fontWeight = FontWeight.Black,
-                                letterSpacing = 0.8.sp
+                                imageVector = Icons.Filled.BookmarkAdd,
+                                contentDescription = null,
+                                tint = GoldAccent,
+                                modifier = Modifier.size(22.dp)
                             )
                         }
-
-                        Surface(
-                            color = EmeraldAccent.copy(alpha = 0.18f),
-                            shape = RoundedCornerShape(6.dp)
-                        ) {
+                        Spacer(modifier = Modifier.width(14.dp))
+                        Column(modifier = Modifier.weight(1f)) {
                             Text(
-                                text = "CLOUD + LAN SYNCED",
-                                color = EmeraldAccent,
-                                fontSize = 9.5.sp,
-                                fontWeight = FontWeight.Bold,
-                                modifier = Modifier.padding(horizontal = 7.dp, vertical = 3.dp)
+                                text = "Your saved list is empty",
+                                color = PrimaryText,
+                                fontSize = 15.sp,
+                                fontWeight = FontWeight.Bold
+                            )
+                            Spacer(modifier = Modifier.height(2.dp))
+                            Text(
+                                text = "Tap '+ My List' on any serial or movie so you can find it right here anytime.",
+                                color = SecondaryText,
+                                fontSize = 12.5.sp
                             )
                         }
                     }
-
-                    Spacer(modifier = Modifier.height(10.dp))
-                    Text(
-                        text = continuitySession?.activeCleanTag ?: "Bigg Boss Season 10 • Day 49 • Vijay TV • HD",
-                        color = PrimaryText,
-                        fontSize = 15.sp,
-                        fontWeight = FontWeight.Bold
-                    )
-                    Spacer(modifier = Modifier.height(4.dp))
-                    Text(
-                        text = "Detected on ${continuitySession?.deviceName ?: "Living Room 4K OLED TV"} (${continuitySession?.localIpAddress ?: "192.168.1.48"}) • Resume point synced",
-                        color = SecondaryText,
-                        fontSize = 12.sp
-                    )
-
-                    Spacer(modifier = Modifier.height(12.dp))
+                }
+            }
+        } else {
+            items(myList, key = { it.episodeUrl }) { item ->
+                val ep = allEpisodes.firstOrNull { it.url == item.episodeUrl }
+                    ?: Episode(item.episodeTitle, item.episodeUrl, item.dateStr, item.thumbnailUrl)
+                Surface(
+                    color = Color(0xFF101522),
+                    shape = RoundedCornerShape(18.dp),
+                    border = BorderStroke(1.dp, Color.White.copy(alpha = 0.08f)),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp, vertical = 5.dp)
+                        .clickable { onEpisodeClick(ep) }
+                ) {
                     Row(
-                        horizontalArrangement = Arrangement.spacedBy(10.dp),
-                        modifier = Modifier.fillMaxWidth()
+                        modifier = Modifier.padding(12.dp),
+                        verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Button(
-                            onClick = onHandoffToTv,
-                            colors = ButtonDefaults.buttonColors(containerColor = CrimsonAccent),
-                            shape = RoundedCornerShape(10.dp),
+                        AsyncImage(
+                            model = item.thumbnailUrl,
+                            contentDescription = item.episodeTitle,
+                            contentScale = ContentScale.Crop,
                             modifier = Modifier
-                                .weight(1f)
-                                .testTag("continue_on_living_room_tv_button")
-                        ) {
-                            Icon(
-                                imageVector = Icons.Filled.Tv,
-                                contentDescription = null,
-                                tint = Color.White,
-                                modifier = Modifier.size(16.dp)
-                            )
-                            Spacer(modifier = Modifier.width(6.dp))
+                                .size(width = 104.dp, height = 62.dp)
+                                .clip(RoundedCornerShape(12.dp))
+                                .background(Color(0xFF1B2030))
+                        )
+                        Spacer(modifier = Modifier.width(14.dp))
+                        Column(modifier = Modifier.weight(1f)) {
                             Text(
-                                text = "Continue on Living Room TV",
-                                color = Color.White,
-                                fontSize = 12.sp,
+                                text = item.episodeTitle,
+                                color = PrimaryText,
+                                fontSize = 15.sp,
                                 fontWeight = FontWeight.Bold,
                                 maxLines = 1,
                                 overflow = TextOverflow.Ellipsis
                             )
-                        }
-
-                        OutlinedButton(
-                            onClick = { showVirtualRemoteSheet = !showVirtualRemoteSheet },
-                            shape = RoundedCornerShape(10.dp),
-                            border = BorderStroke(1.dp, CyanAccent),
-                            modifier = Modifier.testTag("virtual_remote_keyboard_button")
-                        ) {
-                            Icon(
-                                imageVector = Icons.Filled.Keyboard,
-                                contentDescription = "Phone as Virtual Remote",
-                                tint = CyanAccent,
-                                modifier = Modifier.size(16.dp)
-                            )
-                            Spacer(modifier = Modifier.width(6.dp))
+                            Spacer(modifier = Modifier.height(3.dp))
                             Text(
-                                text = "Phone Remote",
-                                color = CyanAccent,
+                                text = ep.enrichedMetadata?.cleanTag ?: item.dateStr,
+                                color = SecondaryText,
                                 fontSize = 12.sp,
-                                fontWeight = FontWeight.Bold
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
                             )
                         }
-                    }
-
-                    // Expandable Phone as Virtual Remote & Keyboard Input
-                    AnimatedVisibility(visible = showVirtualRemoteSheet) {
-                        Column(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(top = 12.dp)
+                        Surface(
+                            color = PrimaryText,
+                            shape = RoundedCornerShape(50),
+                            modifier = Modifier.padding(end = 4.dp)
                         ) {
-                            OutlinedTextField(
-                                value = remoteKeyboardInput,
-                                onValueChange = { remoteKeyboardInput = it },
-                                label = { Text("Push text to Living Room TV Search / Live Chat", color = SecondaryText, fontSize = 12.sp) },
-                                singleLine = true,
-                                trailingIcon = {
-                                    IconButton(
-                                        onClick = {
-                                            if (remoteKeyboardInput.isNotBlank()) {
-                                                onSendVirtualRemoteText(remoteKeyboardInput)
-                                                remoteKeyboardInput = ""
-                                            }
-                                        }
-                                    ) {
-                                        Icon(Icons.AutoMirrored.Filled.Send, contentDescription = "Push to TV", tint = CyanAccent)
-                                    }
-                                },
-                                colors = OutlinedTextFieldDefaults.colors(
-                                    focusedBorderColor = CyanAccent,
-                                    unfocusedBorderColor = Color.White.copy(alpha = 0.2f),
-                                    focusedTextColor = PrimaryText,
-                                    unfocusedTextColor = PrimaryText
-                                ),
-                                modifier = Modifier.fillMaxWidth()
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp)
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Filled.PlayArrow,
+                                    contentDescription = "Play",
+                                    tint = Color.Black,
+                                    modifier = Modifier.size(15.dp)
+                                )
+                                Spacer(modifier = Modifier.width(3.dp))
+                                Text(
+                                    text = "Play",
+                                    color = Color.Black,
+                                    fontSize = 11.5.sp,
+                                    fontWeight = FontWeight.Bold
+                                )
+                            }
+                        }
+                        IconButton(onClick = { onRemoveFromWatchlist(item) }) {
+                            Icon(
+                                imageVector = Icons.Filled.BookmarkRemove,
+                                contentDescription = "Remove from Saved",
+                                tint = SecondaryText
                             )
                         }
                     }
@@ -805,60 +1320,59 @@ fun UnifiedLibraryHubView(
             }
         }
 
-        // 2. Smart Episode Calendar Header & Channel Filter
+        // 2. Daily Serial & TV Timings Guide (Star Vijay, Zee Tamil, Sun TV, Sony Vizha)
         item {
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 16.dp, vertical = 10.dp)
+                    .padding(horizontal = 20.dp, vertical = 14.dp)
             ) {
                 Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Icon(
-                            imageVector = Icons.Filled.CalendarMonth,
-                            contentDescription = "Smart Episode Calendar",
-                            tint = GoldAccent,
-                            modifier = Modifier.size(22.dp)
+                    Icon(
+                        imageVector = Icons.Filled.Schedule,
+                        contentDescription = "Today's TV Serial Timings",
+                        tint = CyanAccent,
+                        modifier = Modifier.size(20.dp)
+                    )
+                    Column {
+                        Text(
+                            text = "Today's TV Serial Timings",
+                            color = PrimaryText,
+                            fontSize = 18.sp,
+                            fontWeight = FontWeight.Bold
                         )
-                        Spacer(modifier = Modifier.width(8.dp))
-                        Column {
-                            Text(
-                                text = "Smart Episode Calendar",
-                                color = PrimaryText,
-                                fontSize = 19.sp,
-                                fontWeight = FontWeight.Black
-                            )
-                            Text(
-                                text = "Star Vijay • Zee Tamil • Sun TV • Sony Vizha (Push Alert when verified playable)",
-                                color = SecondaryText,
-                                fontSize = 11.5.sp
-                            )
-                        }
+                        Text(
+                            text = "Tap any show to watch the latest episode or tap the bell for a reminder",
+                            color = SecondaryText,
+                            fontSize = 12.sp
+                        )
                     }
                 }
 
-                Spacer(modifier = Modifier.height(10.dp))
+                Spacer(modifier = Modifier.height(12.dp))
                 LazyRow(
                     horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
                     items(channels) { channel ->
                         val isSelected = channel == selectedChannel
                         Surface(
-                            color = if (isSelected) CrimsonAccent else CardSurface,
-                            shape = RoundedCornerShape(18.dp),
-                            border = BorderStroke(1.dp, if (isSelected) CrimsonAccent else Color.White.copy(alpha = 0.12f)),
+                            color = if (isSelected) PrimaryText else Color.White.copy(alpha = 0.08f),
+                            shape = RoundedCornerShape(50),
+                            border = BorderStroke(
+                                1.dp,
+                                if (isSelected) PrimaryText else Color.White.copy(alpha = 0.1f)
+                            ),
                             modifier = Modifier.clickable { onSelectChannel(channel) }
                         ) {
                             Text(
                                 text = channel,
-                                color = PrimaryText,
-                                fontSize = 12.sp,
+                                color = if (isSelected) Color.Black else PrimaryText,
+                                fontSize = 12.5.sp,
                                 fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
-                                modifier = Modifier.padding(horizontal = 14.dp, vertical = 7.dp)
+                                modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
                             )
                         }
                     }
@@ -866,11 +1380,11 @@ fun UnifiedLibraryHubView(
             }
         }
 
-        // Smart Calendar Schedule Cards
+        // TV Timings Cards
         items(filteredSchedule, key = { it.id }) { item ->
             Surface(
-                color = CardSurface,
-                shape = RoundedCornerShape(16.dp),
+                color = Color(0xFF101522),
+                shape = RoundedCornerShape(18.dp),
                 border = BorderStroke(1.dp, Color.White.copy(alpha = 0.08f)),
                 modifier = Modifier
                     .fillMaxWidth()
@@ -889,62 +1403,62 @@ fun UnifiedLibraryHubView(
                         contentDescription = item.showTitle,
                         contentScale = ContentScale.Crop,
                         modifier = Modifier
-                            .size(width = 96.dp, height = 62.dp)
-                            .clip(RoundedCornerShape(10.dp))
+                            .size(width = 100.dp, height = 64.dp)
+                            .clip(RoundedCornerShape(12.dp))
                             .background(Color(0xFF1B2030))
                     )
-                    Spacer(modifier = Modifier.width(12.dp))
+                    Spacer(modifier = Modifier.width(14.dp))
                     Column(modifier = Modifier.weight(1f)) {
                         Row(
                             verticalAlignment = Alignment.CenterVertically,
                             horizontalArrangement = Arrangement.spacedBy(6.dp)
                         ) {
                             Surface(
-                                color = Color(0xFF23293D),
-                                shape = RoundedCornerShape(4.dp)
+                                color = Color(0xFF1D2436),
+                                shape = RoundedCornerShape(6.dp)
                             ) {
                                 Text(
-                                    text = "${item.dayLabel} • ${item.telecastTime}",
+                                    text = "${item.channel} • ${item.telecastTime}",
                                     color = GoldAccent,
-                                    fontSize = 10.sp,
+                                    fontSize = 10.5.sp,
                                     fontWeight = FontWeight.Bold,
-                                    modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp)
                                 )
                             }
                             if (item.isLiveVerified) {
                                 Surface(
-                                    color = EmeraldAccent.copy(alpha = 0.18f),
-                                    shape = RoundedCornerShape(4.dp)
+                                    color = EmeraldAccent.copy(alpha = 0.16f),
+                                    shape = RoundedCornerShape(6.dp)
                                 ) {
                                     Text(
-                                        text = "✓ ${item.activeMirrorsCount} Mirrors Verified",
+                                        text = "Ready to Watch",
                                         color = EmeraldAccent,
-                                        fontSize = 9.5.sp,
+                                        fontSize = 10.sp,
                                         fontWeight = FontWeight.Bold,
-                                        modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                                        modifier = Modifier.padding(horizontal = 7.dp, vertical = 3.dp)
                                     )
                                 }
                             }
                         }
-                        Spacer(modifier = Modifier.height(4.dp))
+                        Spacer(modifier = Modifier.height(5.dp))
                         Text(
                             text = item.showTitle,
                             color = PrimaryText,
-                            fontSize = 14.5.sp,
+                            fontSize = 15.5.sp,
                             fontWeight = FontWeight.Bold,
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis
                         )
                         Text(
-                            text = item.cleanTag,
-                            color = CyanAccent,
-                            fontSize = 11.sp,
+                            text = "${item.dayLabel} Episode",
+                            color = SecondaryText,
+                            fontSize = 12.sp,
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis
                         )
                     }
 
-                    // Push Notification Bell + Instant Verified Alert Button
+                    // Reminder Bell Button
                     IconButton(
                         onClick = {
                             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
@@ -957,7 +1471,7 @@ fun UnifiedLibraryHubView(
                     ) {
                         Icon(
                             imageVector = if (item.notifyOnLive) Icons.Filled.NotificationsActive else Icons.Outlined.Notifications,
-                            contentDescription = "Toggle Live Push Alert",
+                            contentDescription = "Remind me when new episode arrives",
                             tint = if (item.notifyOnLive) GoldAccent else SecondaryText
                         )
                     }
@@ -965,17 +1479,17 @@ fun UnifiedLibraryHubView(
             }
         }
 
-        // 3. Offline Chunked Downloader Section (.TS -> .MP4)
+        // 3. Watch Without Internet (Offline Saved Episodes)
         item {
             Surface(
-                color = CardSurface,
-                shape = RoundedCornerShape(18.dp),
-                border = BorderStroke(1.dp, Color.White.copy(alpha = 0.1f)),
+                color = Color(0xFF101522),
+                shape = RoundedCornerShape(20.dp),
+                border = BorderStroke(1.dp, Color.White.copy(alpha = 0.08f)),
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 16.dp, vertical = 14.dp)
+                    .padding(horizontal = 16.dp, vertical = 12.dp)
             ) {
-                Column(modifier = Modifier.padding(16.dp)) {
+                Column(modifier = Modifier.padding(18.dp)) {
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.SpaceBetween,
@@ -983,21 +1497,27 @@ fun UnifiedLibraryHubView(
                     ) {
                         Column(modifier = Modifier.weight(1f)) {
                             Text(
-                                text = "Offline Chunked Downloader (.TS → .MP4)",
+                                text = "Downloaded to Watch Offline",
                                 color = PrimaryText,
-                                fontSize = 16.sp,
-                                fontWeight = FontWeight.Black
+                                fontSize = 16.5.sp,
+                                fontWeight = FontWeight.Bold
                             )
+                            Spacer(modifier = Modifier.height(2.dp))
                             Text(
-                                text = "Concurrently fetches HLS .ts segments in background and stitches into local .mp4",
+                                text = "Save today's latest episode to watch without Wi-Fi",
                                 color = SecondaryText,
-                                fontSize = 11.5.sp
+                                fontSize = 12.sp
                             )
                         }
+                        Spacer(modifier = Modifier.width(10.dp))
                         Button(
                             onClick = onStartSampleDownload,
-                            colors = ButtonDefaults.buttonColors(containerColor = CyanAccent),
-                            shape = RoundedCornerShape(10.dp),
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = PrimaryText,
+                                contentColor = Color.Black
+                            ),
+                            shape = RoundedCornerShape(50),
+                            contentPadding = PaddingValues(horizontal = 14.dp, vertical = 8.dp),
                             modifier = Modifier.testTag("download_latest_mp4_button")
                         ) {
                             Icon(
@@ -1008,20 +1528,20 @@ fun UnifiedLibraryHubView(
                             )
                             Spacer(modifier = Modifier.width(6.dp))
                             Text(
-                                text = "Fetch MP4",
+                                text = "Save Episode",
                                 color = Color.Black,
                                 fontSize = 12.sp,
-                                fontWeight = FontWeight.ExtraBold
+                                fontWeight = FontWeight.Bold
                             )
                         }
                     }
 
                     if (offlineDownloads.isNotEmpty()) {
-                        Spacer(modifier = Modifier.height(12.dp))
+                        Spacer(modifier = Modifier.height(14.dp))
                         offlineDownloads.forEach { dl ->
                             Surface(
-                                color = Color(0xFF1A2032),
-                                shape = RoundedCornerShape(12.dp),
+                                color = Color(0xFF181F30),
+                                shape = RoundedCornerShape(14.dp),
                                 modifier = Modifier
                                     .fillMaxWidth()
                                     .padding(vertical = 4.dp)
@@ -1041,36 +1561,42 @@ fun UnifiedLibraryHubView(
                                             Text(
                                                 text = dl.cleanTag,
                                                 color = PrimaryText,
-                                                fontSize = 13.sp,
+                                                fontSize = 14.sp,
                                                 fontWeight = FontWeight.Bold,
                                                 maxLines = 1,
                                                 overflow = TextOverflow.Ellipsis
                                             )
                                             Text(
-                                                text = "${dl.status} • Chunks: ${dl.chunksDownloaded}/${dl.totalChunks} • ${dl.fileSizeMb} MB",
+                                                text = if (dl.status == "COMPLETED") {
+                                                    "Ready to Watch Offline • ${dl.fileSizeMb} MB"
+                                                } else {
+                                                    "Saving Episode... ${dl.progressPercent}%"
+                                                },
                                                 color = if (dl.status == "COMPLETED") EmeraldAccent else CyanAccent,
-                                                fontSize = 11.sp,
+                                                fontSize = 11.5.sp,
                                                 fontWeight = FontWeight.SemiBold
                                             )
                                         }
                                         IconButton(onClick = { onRemoveOfflineDownload(dl.id) }) {
                                             Icon(
                                                 imageVector = Icons.Filled.DeleteOutline,
-                                                contentDescription = "Delete Offline MP4",
+                                                contentDescription = "Delete Saved Episode",
                                                 tint = SecondaryText
                                             )
                                         }
                                     }
-                                    Spacer(modifier = Modifier.height(6.dp))
-                                    LinearProgressIndicator(
-                                        progress = { (dl.progressPercent / 100f).coerceIn(0f, 1f) },
-                                        color = if (dl.status == "COMPLETED") EmeraldAccent else CyanAccent,
-                                        trackColor = Color.White.copy(alpha = 0.12f),
-                                        modifier = Modifier
-                                            .fillMaxWidth()
-                                            .height(5.dp)
-                                            .clip(RoundedCornerShape(3.dp))
-                                    )
+                                    if (dl.status != "COMPLETED") {
+                                        Spacer(modifier = Modifier.height(6.dp))
+                                        LinearProgressIndicator(
+                                            progress = { (dl.progressPercent / 100f).coerceIn(0f, 1f) },
+                                            color = CyanAccent,
+                                            trackColor = Color.White.copy(alpha = 0.12f),
+                                            modifier = Modifier
+                                                .fillMaxWidth()
+                                                .height(5.dp)
+                                                .clip(RoundedCornerShape(3.dp))
+                                        )
+                                    }
                                 }
                             }
                         }
@@ -1079,72 +1605,157 @@ fun UnifiedLibraryHubView(
             }
         }
 
-        // 4. Saved Watchlist (My List)
+        // 4. Play on Living Room TV (Simple Family TV Remote & Handoff)
         item {
-            Text(
-                text = "MY SAVED WATCHLIST (${myList.size})",
-                color = GoldAccent,
-                fontSize = 12.sp,
-                fontWeight = FontWeight.ExtraBold,
-                letterSpacing = 1.sp,
-                modifier = Modifier.padding(horizontal = 18.dp, vertical = 8.dp)
-            )
-        }
-
-        if (myList.isEmpty()) {
-            item {
-                Text(
-                    text = "Tap the + button on any show, movie, or episode to sync it across your TV and Phone.",
-                    color = SecondaryText,
-                    fontSize = 13.sp,
-                    modifier = Modifier.padding(horizontal = 18.dp, vertical = 8.dp)
-                )
-            }
-        } else {
-            items(myList, key = { it.episodeUrl }) { item ->
-                val ep = allEpisodes.firstOrNull { it.url == item.episodeUrl }
-                    ?: Episode(item.episodeTitle, item.episodeUrl, item.dateStr, item.thumbnailUrl)
-                Surface(
-                    color = CardSurface,
-                    shape = RoundedCornerShape(14.dp),
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 16.dp, vertical = 5.dp)
-                        .clickable { onEpisodeClick(ep) }
-                ) {
+            Surface(
+                color = Color(0xFF101522),
+                shape = RoundedCornerShape(20.dp),
+                border = BorderStroke(1.dp, Color.White.copy(alpha = 0.08f)),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp, vertical = 6.dp)
+                    .testTag("continuity_handoff_card")
+            ) {
+                Column(modifier = Modifier.padding(18.dp)) {
                     Row(
-                        modifier = Modifier.padding(12.dp),
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        AsyncImage(
-                            model = item.thumbnailUrl,
-                            contentDescription = item.episodeTitle,
-                            contentScale = ContentScale.Crop,
-                            modifier = Modifier
-                                .size(width = 88.dp, height = 54.dp)
-                                .clip(RoundedCornerShape(8.dp))
-                        )
-                        Spacer(modifier = Modifier.width(12.dp))
-                        Column(modifier = Modifier.weight(1f)) {
-                            Text(
-                                text = item.episodeTitle,
-                                color = PrimaryText,
-                                fontSize = 14.sp,
-                                fontWeight = FontWeight.Bold,
-                                maxLines = 1,
-                                overflow = TextOverflow.Ellipsis
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Icon(
+                                imageVector = Icons.Filled.Tv,
+                                contentDescription = "Living Room TV",
+                                tint = CyanAccent,
+                                modifier = Modifier.size(20.dp)
                             )
+                            Spacer(modifier = Modifier.width(8.dp))
                             Text(
-                                text = ep.enrichedMetadata?.cleanTag ?: item.dateStr,
-                                color = CyanAccent,
-                                fontSize = 11.5.sp
+                                text = "Living Room TV Companion",
+                                color = PrimaryText,
+                                fontSize = 16.sp,
+                                fontWeight = FontWeight.Bold
                             )
                         }
-                        IconButton(onClick = { onRemoveFromWatchlist(item) }) {
+
+                        Surface(
+                            color = EmeraldAccent.copy(alpha = 0.16f),
+                            shape = RoundedCornerShape(50)
+                        ) {
+                            Text(
+                                text = "Connected",
+                                color = EmeraldAccent,
+                                fontSize = 10.5.sp,
+                                fontWeight = FontWeight.Bold,
+                                modifier = Modifier.padding(horizontal = 9.dp, vertical = 3.dp)
+                            )
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Text(
+                        text = continuitySession?.activeCleanTag ?: "Bigg Boss Season 10 • Vijay TV • HD",
+                        color = PrimaryText,
+                        fontSize = 14.sp,
+                        fontWeight = FontWeight.SemiBold
+                    )
+                    Spacer(modifier = Modifier.height(2.dp))
+                    Text(
+                        text = "Continue watching on ${continuitySession?.deviceName ?: "Living Room TV"} from where you left off",
+                        color = SecondaryText,
+                        fontSize = 12.sp
+                    )
+
+                    Spacer(modifier = Modifier.height(14.dp))
+                    Row(
+                        horizontalArrangement = Arrangement.spacedBy(10.dp),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Button(
+                            onClick = onHandoffToTv,
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = PrimaryText,
+                                contentColor = Color.Black
+                            ),
+                            shape = RoundedCornerShape(50),
+                            contentPadding = PaddingValues(horizontal = 14.dp, vertical = 9.dp),
+                            modifier = Modifier
+                                .weight(1f)
+                                .testTag("continue_on_living_room_tv_button")
+                        ) {
                             Icon(
-                                imageVector = Icons.Filled.BookmarkRemove,
-                                contentDescription = "Remove from Watchlist",
-                                tint = CrimsonAccent
+                                imageVector = Icons.Filled.Tv,
+                                contentDescription = null,
+                                tint = Color.Black,
+                                modifier = Modifier.size(16.dp)
+                            )
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Text(
+                                text = "Play on Living Room TV",
+                                color = Color.Black,
+                                fontSize = 12.sp,
+                                fontWeight = FontWeight.Bold,
+                                maxLines = 1,
+                                softWrap = false,
+                                overflow = TextOverflow.Ellipsis
+                            )
+                        }
+
+                        OutlinedButton(
+                            onClick = { showVirtualRemoteSheet = !showVirtualRemoteSheet },
+                            shape = RoundedCornerShape(50),
+                            border = BorderStroke(1.dp, Color.White.copy(alpha = 0.24f)),
+                            contentPadding = PaddingValues(horizontal = 14.dp, vertical = 9.dp),
+                            modifier = Modifier.testTag("virtual_remote_keyboard_button")
+                        ) {
+                            Icon(
+                                imageVector = Icons.Filled.Keyboard,
+                                contentDescription = "TV Keyboard",
+                                tint = PrimaryText,
+                                modifier = Modifier.size(16.dp)
+                            )
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Text(
+                                text = "TV Keyboard",
+                                color = PrimaryText,
+                                fontSize = 12.sp,
+                                fontWeight = FontWeight.SemiBold,
+                                maxLines = 1,
+                                softWrap = false
+                            )
+                        }
+                    }
+
+                    AnimatedVisibility(visible = showVirtualRemoteSheet) {
+                        Column(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(top = 12.dp)
+                        ) {
+                            OutlinedTextField(
+                                value = remoteKeyboardInput,
+                                onValueChange = { remoteKeyboardInput = it },
+                                label = { Text("Type a show or movie name to search on TV", color = SecondaryText, fontSize = 12.sp) },
+                                singleLine = true,
+                                trailingIcon = {
+                                    IconButton(
+                                        onClick = {
+                                            if (remoteKeyboardInput.isNotBlank()) {
+                                                onSendVirtualRemoteText(remoteKeyboardInput)
+                                                remoteKeyboardInput = ""
+                                            }
+                                        }
+                                    ) {
+                                        Icon(Icons.AutoMirrored.Filled.Send, contentDescription = "Send to TV", tint = CyanAccent)
+                                    }
+                                },
+                                colors = OutlinedTextFieldDefaults.colors(
+                                    focusedBorderColor = CyanAccent,
+                                    unfocusedBorderColor = Color.White.copy(alpha = 0.2f),
+                                    focusedTextColor = PrimaryText,
+                                    unfocusedTextColor = PrimaryText
+                                ),
+                                modifier = Modifier.fillMaxWidth()
                             )
                         }
                     }
@@ -1153,3 +1764,4 @@ fun UnifiedLibraryHubView(
         }
     }
 }
+

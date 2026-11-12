@@ -245,7 +245,6 @@ fun EpisodeRowItem(
             .fillMaxWidth()
             .scale(if (isFocused) 1.02f else 1.0f)
             .onFocusChanged { isFocused = it.isFocused }
-            .focusable()
             .testTag("episode_row_${episode.url.hashCode()}")
     ) {
         Row(

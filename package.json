@@ -1,0 +1,13 @@
+{
+  "name": "rasagulla-cinema-web",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Rasagulla Cinema & TV — Web, Mobile & Smart TV 10-Foot Streaming Platform (Vercel Ready)",
+  "engines": {
+    "node": ">=18.x"
+  },
+  "scripts": {
+    "start": "node dev-server.js",
+    "build": "echo 'Static & Serverless bundle ready in public/ and api/'"
+  }
+}

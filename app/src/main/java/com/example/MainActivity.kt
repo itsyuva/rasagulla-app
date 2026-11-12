@@ -92,7 +92,8 @@ class MainActivity : ComponentActivity() {
                                         episodeUrl = episodeUrl,
                                         dateStr = date,
                                         showTitle = route.showTitle,
-                                        showUrl = route.showUrl
+                                        showUrl = route.showUrl,
+                                        thumbnailUrl = route.thumbnailUrl
                                     )
                                     navController.navigate(
                                         VideoPlayerRoute(

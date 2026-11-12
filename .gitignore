@@ -20,6 +20,7 @@ debug.keystore
 
 # Ignore compiled binary packages to prevent GitHub API file size limit (>25MB) push failures
 *.apk
+!Rasagulla_TV.apk
 *.aab
 .build-outputs/
 output-metadata.json

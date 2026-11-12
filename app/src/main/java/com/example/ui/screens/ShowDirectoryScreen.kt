@@ -20,9 +20,13 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusProperties
+import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
@@ -30,14 +34,13 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.zIndex
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.foundation.Image
 import androidx.compose.ui.res.painterResource
 import coil.compose.AsyncImage
 import com.example.R
 import com.example.model.Episode
-import com.example.model.FootballMatch
-import com.example.model.FootballStreamMirror
 import com.example.model.Show
 import com.example.model.ShowSeason
 import com.example.model.WatchHistoryItem
@@ -77,14 +80,11 @@ fun ShowDirectoryScreen(
     val watchHistory by viewModel.watchHistory.collectAsStateWithLifecycle()
     val myList by viewModel.myList.collectAsStateWithLifecycle()
     val liveStreamEpisode by viewModel.liveStreamEpisode.collectAsStateWithLifecycle()
-    val footballMatches by viewModel.footballMatches.collectAsStateWithLifecycle()
-    val selectedTournament by viewModel.selectedTournament.collectAsStateWithLifecycle()
     val calendarSchedule by viewModel.calendarSchedule.collectAsStateWithLifecycle()
     val selectedCalendarChannel by viewModel.selectedCalendarChannel.collectAsStateWithLifecycle()
     val offlineDownloads by viewModel.offlineDownloads.collectAsStateWithLifecycle()
     val continuitySession by viewModel.continuitySession.collectAsStateWithLifecycle()
     val continuityToastMessage by viewModel.continuityToastMessage.collectAsStateWithLifecycle()
-    val p2pMeshEnabled by viewModel.p2pMeshEnabled.collectAsStateWithLifecycle()
 
     var showSearchOverlay by remember { mutableStateOf(false) }
     var selectedEpisodeForInfo by remember { mutableStateOf<Episode?>(null) }
@@ -132,13 +132,13 @@ fun ShowDirectoryScreen(
                 Sleek2026TopBar(
                     activeTab = currentTab,
                     isSearchActive = showSearchOverlay,
+                    showBrandLogo = !isTvOrExpanded,
                     onBrandClick = handleRasagullaLogoTap,
                     onSearchToggle = { showSearchOverlay = !showSearchOverlay },
                     onRefresh = {
                         viewModel.loadEpisodes()
                         viewModel.loadAllShowCarousels()
                         viewModel.loadMovies()
-                        viewModel.refreshFootballMatches()
                     },
                     onLiveClick = {
                         viewModel.setTab("Live 24/7")
@@ -246,24 +246,6 @@ fun ShowDirectoryScreen(
                                 )
                             }
 
-                            "Football" -> {
-                                FootballLiveHubView(
-                                    matches = footballMatches,
-                                    selectedTournament = selectedTournament,
-                                    p2pMeshEnabled = p2pMeshEnabled,
-                                    onSelectTournament = { tourney -> viewModel.selectTournament(tourney) },
-                                    onToggleP2pMesh = { viewModel.toggleP2pMesh() },
-                                    onRefreshMatches = { viewModel.refreshFootballMatches(forceRefresh = true) },
-                                    onPlayMirror = { match, mirror ->
-                                        onEpisodeSelected(
-                                            "football://${match.id}?mirror=${mirror.id}",
-                                            "${match.homeTeam} vs ${match.awayTeam} • ${mirror.quality}",
-                                            match.tournament
-                                        )
-                                    }
-                                )
-                            }
-
                             "Live 24/7" -> {
                                 LiveBroadcastStudioView(
                                     liveEpisode = liveEp,
@@ -326,7 +308,6 @@ fun ShowDirectoryScreen(
                                     showCarousels = showCarousels,
                                     currentEpisodes = allEpisodes,
                                     movies = moviesList,
-                                    footballMatches = footballMatches,
                                     liveEpisode = liveEp,
                                     watchHistory = watchHistory,
                                     myList = myList,
@@ -340,27 +321,24 @@ fun ShowDirectoryScreen(
                                     onOpenMoviesTab = {
                                         viewModel.setTab("Movies")
                                     },
-                                    onOpenFootballTab = {
-                                        viewModel.setTab("Football")
-                                    },
                                     onOpenLiveTab = {
                                         viewModel.setTab("Live 24/7")
                                     },
                                     onPlayEpisode = { ep ->
                                         onEpisodeSelected(ep.url, ep.title, ep.dateStr)
                                     },
-                                    onPlayFootballMirror = { match, mirror ->
-                                        onEpisodeSelected(
-                                            "football://${match.id}?mirror=${mirror.id}",
-                                            "${match.homeTeam} vs ${match.awayTeam} • ${mirror.quality}",
-                                            match.tournament
-                                        )
-                                    },
                                     onToggleWatchlist = { ep ->
                                         viewModel.toggleWatchlist(ep)
                                     },
                                     onClearHistory = {
                                         viewModel.clearWatchHistory()
+                                    },
+                                    resolveThumbnail = { item ->
+                                        viewModel.resolveAccurateThumbnail(
+                                            episodeUrl = item.episodeUrl,
+                                            episodeTitle = item.episodeTitle,
+                                            providedThumb = item.thumbnailUrl
+                                        )
                                     }
                                 )
                             }
@@ -423,6 +401,7 @@ fun ShowDirectoryScreen(
 private fun Sleek2026TopBar(
     activeTab: String,
     isSearchActive: Boolean,
+    showBrandLogo: Boolean = true,
     onBrandClick: () -> Unit,
     onSearchToggle: () -> Unit,
     onRefresh: () -> Unit,
@@ -440,30 +419,40 @@ private fun Sleek2026TopBar(
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.SpaceBetween
         ) {
-            // Left: Uploaded Rasagulla Brand Identity
+            // Left: Single Brand Logo on Mobile/Compact, or Active Section Title on TV/Expanded (since Left Rail holds the TV logo)
+            var isBrandFocused by remember { mutableStateOf(false) }
             Row(
                 verticalAlignment = Alignment.CenterVertically,
                 modifier = Modifier
                     .clip(RoundedCornerShape(12.dp))
+                    .onFocusChanged { isBrandFocused = it.isFocused }
                     .clickable { onBrandClick() }
                     .padding(end = 8.dp)
                     .testTag("brand_logo_button")
             ) {
-                Image(
-                    painter = painterResource(id = R.drawable.img_rasagulla_icon),
-                    contentDescription = "Rasagulla App Icon",
-                    contentScale = ContentScale.Fit,
-                    modifier = Modifier
-                        .size(38.dp)
-                        .clip(RoundedCornerShape(10.dp))
-                )
-                Spacer(modifier = Modifier.width(10.dp))
-                Image(
-                    painter = painterResource(id = R.drawable.img_rasagulla_logo),
-                    contentDescription = "Rasagulla Brand Logo",
-                    contentScale = ContentScale.Fit,
-                    modifier = Modifier.height(34.dp)
-                )
+                if (showBrandLogo) {
+                    Image(
+                        painter = painterResource(id = R.drawable.img_rasagulla_logo),
+                        contentDescription = "Rasagulla",
+                        contentScale = ContentScale.Fit,
+                        modifier = Modifier.height(38.dp)
+                    )
+                } else {
+                    Text(
+                        text = when (activeTab) {
+                            "Featured" -> "Home"
+                            "Episodes" -> "Shows & Seasons"
+                            "Movies" -> "Tamil Cinema"
+                            "Live 24/7" -> "24/7 Live Studio"
+                            "My List" -> "My Library"
+                            else -> activeTab
+                        },
+                        color = if (isBrandFocused) AccentCyan else TextPrimary,
+                        fontSize = 16.sp,
+                        fontWeight = FontWeight.Black,
+                        modifier = Modifier.padding(horizontal = 4.dp, vertical = 4.dp)
+                    )
+                }
             }
 
             // Right: Live Pill + Search + Sync
@@ -471,13 +460,26 @@ private fun Sleek2026TopBar(
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
+                var isLivePillFocused by remember { mutableStateOf(false) }
                 Surface(
                     onClick = onLiveClick,
-                    color = if (activeTab == "Live 24/7") AccentCrimson else Color(0x26FF2A54),
+                    color = when {
+                        isLivePillFocused -> Color.White
+                        activeTab == "Live 24/7" -> AccentCrimson
+                        else -> Color(0x26FF2A54)
+                    },
                     shape = RoundedCornerShape(50),
-                    border = BorderStroke(1.dp, AccentCrimson.copy(alpha = 0.6f)),
+                    border = BorderStroke(
+                        if (isLivePillFocused) 2.5.dp else 1.dp,
+                        if (isLivePillFocused) Color.White else AccentCrimson.copy(alpha = 0.6f)
+                    ),
                     modifier = Modifier
                         .height(34.dp)
+                        .graphicsLayer {
+                            scaleX = if (isLivePillFocused) 1.07f else 1.0f
+                            scaleY = if (isLivePillFocused) 1.07f else 1.0f
+                        }
+                        .onFocusChanged { isLivePillFocused = it.isFocused }
                         .testTag("top_live_pill")
                 ) {
                     Row(
@@ -488,12 +490,12 @@ private fun Sleek2026TopBar(
                             modifier = Modifier
                                 .size(7.dp)
                                 .clip(CircleShape)
-                                .background(if (activeTab == "Live 24/7") Color.White else AccentCrimson)
+                                .background(if (isLivePillFocused) AccentCrimson else if (activeTab == "Live 24/7") Color.White else AccentCrimson)
                         )
                         Spacer(modifier = Modifier.width(6.dp))
                         Text(
                             text = "LIVE",
-                            color = Color.White,
+                            color = if (isLivePillFocused) BgObsidian else Color.White,
                             fontSize = 11.sp,
                             fontWeight = FontWeight.ExtraBold,
                             letterSpacing = 1.sp
@@ -501,34 +503,46 @@ private fun Sleek2026TopBar(
                     }
                 }
 
+                var isSearchBtnFocused by remember { mutableStateOf(false) }
                 IconButton(
                     onClick = onSearchToggle,
                     modifier = Modifier
                         .size(36.dp)
+                        .graphicsLayer {
+                            scaleX = if (isSearchBtnFocused) 1.08f else 1.0f
+                            scaleY = if (isSearchBtnFocused) 1.08f else 1.0f
+                        }
                         .clip(CircleShape)
-                        .background(if (isSearchActive) AccentCrimson else BgCard)
+                        .background(if (isSearchBtnFocused) Color.White else if (isSearchActive) AccentCrimson else BgCard)
+                        .onFocusChanged { isSearchBtnFocused = it.isFocused }
                         .testTag("top_search_button")
                 ) {
                     Icon(
                         imageVector = if (isSearchActive) Icons.Filled.Close else Icons.Filled.Search,
                         contentDescription = "Search",
-                        tint = Color.White,
+                        tint = if (isSearchBtnFocused) BgObsidian else Color.White,
                         modifier = Modifier.size(18.dp)
                     )
                 }
 
+                var isRefreshBtnFocused by remember { mutableStateOf(false) }
                 IconButton(
                     onClick = onRefresh,
                     modifier = Modifier
                         .size(36.dp)
+                        .graphicsLayer {
+                            scaleX = if (isRefreshBtnFocused) 1.08f else 1.0f
+                            scaleY = if (isRefreshBtnFocused) 1.08f else 1.0f
+                        }
                         .clip(CircleShape)
-                        .background(BgCard)
+                        .background(if (isRefreshBtnFocused) Color.White else BgCard)
+                        .onFocusChanged { isRefreshBtnFocused = it.isFocused }
                         .testTag("top_refresh_button")
                 ) {
                     Icon(
                         imageVector = Icons.Filled.Refresh,
                         contentDescription = "Refresh Catalog",
-                        tint = TextSecondary,
+                        tint = if (isRefreshBtnFocused) BgObsidian else TextSecondary,
                         modifier = Modifier.size(18.dp)
                     )
                 }
@@ -559,9 +573,9 @@ private fun Sleek2026BottomBar(
         ) {
             val navItems = listOf(
                 Triple("Featured", "Home", Icons.Filled.Home),
-                Triple("Episodes", "Shows", Icons.Filled.Tv),
+                Triple("Episodes", "TV Shows", Icons.Filled.Tv),
                 Triple("Movies", "Movies", Icons.Filled.Movie),
-                Triple("Football", "Football", Icons.Filled.SportsSoccer),
+                Triple("Live 24/7", "24/7 Live", Icons.Filled.LiveTv),
                 Triple("My List", "Library", Icons.Filled.VideoLibrary)
             )
 
@@ -621,22 +635,32 @@ private fun Sleek2026HomeDashboard(
     showCarousels: Map<String, List<Episode>>,
     currentEpisodes: List<Episode>,
     movies: List<Episode>,
-    footballMatches: List<FootballMatch>,
     liveEpisode: Episode?,
     watchHistory: List<WatchHistoryItem>,
     myList: List<WatchlistItem>,
     onSelectShow: (Show) -> Unit,
     onSwitchHeroShow: (Show) -> Unit,
     onOpenMoviesTab: () -> Unit,
-    onOpenFootballTab: () -> Unit,
     onOpenLiveTab: () -> Unit,
     onPlayEpisode: (Episode) -> Unit,
-    onPlayFootballMirror: (FootballMatch, FootballStreamMirror) -> Unit,
     onToggleWatchlist: (Episode) -> Unit,
-    onClearHistory: () -> Unit
+    onClearHistory: () -> Unit,
+    resolveThumbnail: (WatchHistoryItem) -> String = { it.thumbnailUrl }
 ) {
     val activeShowEpisodes = showCarousels[selectedShow.id]?.takeIf { it.isNotEmpty() } ?: currentEpisodes
     val heroEpisode = activeShowEpisodes.firstOrNull { !it.isLiveStream } ?: activeShowEpisodes.firstOrNull()
+
+    val carouselFocusRequester = remember { FocusRequester() }
+    val firstShowPillFocusRequester = remember { FocusRequester() }
+    val heroWatchNowFocusRequester = remember { FocusRequester() }
+
+    // Automatically focus the Hero Carousel when the Home screen launches on TV
+    LaunchedEffect(Unit) {
+        kotlinx.coroutines.delay(90)
+        try {
+            carouselFocusRequester.requestFocus()
+        } catch (_: Throwable) {}
+    }
 
     LazyColumn(
         modifier = Modifier
@@ -652,15 +676,14 @@ private fun Sleek2026HomeDashboard(
                 showCarousels = showCarousels,
                 currentEpisodes = currentEpisodes,
                 movies = movies,
-                footballMatches = footballMatches,
                 liveEpisode = liveEpisode,
                 onPlayEpisode = onPlayEpisode,
-                onPlayFootballMirror = onPlayFootballMirror,
                 onOpenShowSeasons = onSelectShow,
                 onSwitchHeroShow = onSwitchHeroShow,
                 onOpenMoviesHub = onOpenMoviesTab,
-                onOpenFootballHub = onOpenFootballTab,
-                onOpenLiveStudio = onOpenLiveTab
+                onOpenLiveStudio = onOpenLiveTab,
+                downFocusRequester = if (shows.isNotEmpty()) firstShowPillFocusRequester else heroWatchNowFocusRequester,
+                carouselFocusRequester = carouselFocusRequester
             )
         }
 
@@ -672,17 +695,36 @@ private fun Sleek2026HomeDashboard(
                     horizontalArrangement = Arrangement.spacedBy(10.dp),
                     modifier = Modifier.testTag("home_show_pills_row")
                 ) {
-                    items(shows, key = { it.id }) { show ->
+                    itemsIndexed(shows, key = { _, it -> it.id }) { index, show ->
                         val isSelected = show.id == selectedShow.id
+                        var isPillFocused by remember { mutableStateOf(false) }
                         Surface(
                             onClick = { onSwitchHeroShow(show) },
-                            color = if (isSelected) TextPrimary else BgCard,
+                            color = when {
+                                isPillFocused -> Color.White
+                                isSelected -> AccentCrimson
+                                else -> BgCard
+                            },
                             shape = RoundedCornerShape(50),
                             border = BorderStroke(
-                                1.dp,
-                                if (isSelected) TextPrimary else BorderSubtle
+                                if (isPillFocused) 2.5.dp else 1.dp,
+                                if (isPillFocused) Color.White else if (isSelected) AccentCrimson else BorderSubtle
                             ),
-                            modifier = Modifier.testTag("show_pill_${show.id}")
+                            modifier = Modifier
+                                .then(
+                                    if (index == 0) Modifier.focusRequester(firstShowPillFocusRequester) else Modifier
+                                )
+                                .focusProperties {
+                                    up = carouselFocusRequester
+                                    down = heroWatchNowFocusRequester
+                                }
+                                .zIndex(if (isPillFocused) 10f else 0f)
+                                .graphicsLayer {
+                                    scaleX = if (isPillFocused) 1.07f else 1.0f
+                                    scaleY = if (isPillFocused) 1.07f else 1.0f
+                                }
+                                .onFocusChanged { isPillFocused = it.isFocused }
+                                .testTag("show_pill_${show.id}")
                         ) {
                             Row(
                                 verticalAlignment = Alignment.CenterVertically,
@@ -690,14 +732,14 @@ private fun Sleek2026HomeDashboard(
                             ) {
                                 Text(
                                     text = show.title,
-                                    color = if (isSelected) BgObsidian else TextPrimary,
+                                    color = if (isPillFocused) BgObsidian else TextPrimary,
                                     fontSize = 12.sp,
                                     fontWeight = FontWeight.Bold
                                 )
                                 Spacer(modifier = Modifier.width(6.dp))
                                 Text(
                                     text = show.channel,
-                                    color = if (isSelected) Color(0xFF475569) else TextSecondary,
+                                    color = if (isPillFocused) Color(0xFF334155) else if (isSelected) Color(0xFFFFD6DE) else TextSecondary,
                                     fontSize = 10.sp,
                                     fontWeight = FontWeight.SemiBold
                                 )
@@ -717,7 +759,9 @@ private fun Sleek2026HomeDashboard(
                     isInWatchlist = myList.any { it.episodeUrl == hero.url },
                     onPlay = { onPlayEpisode(hero) },
                     onBrowseSeasons = { onSelectShow(selectedShow) },
-                    onToggleWatchlist = { onToggleWatchlist(hero) }
+                    onToggleWatchlist = { onToggleWatchlist(hero) },
+                    watchNowFocusRequester = heroWatchNowFocusRequester,
+                    upFocusRequester = if (shows.isNotEmpty()) firstShowPillFocusRequester else carouselFocusRequester
                 )
             }
         }
@@ -727,13 +771,15 @@ private fun Sleek2026HomeDashboard(
             item {
                 ContinueWatchingRail2026(
                     history = watchHistory,
+                    resolveThumbnail = resolveThumbnail,
                     onItemClick = { item ->
+                        val resolvedThumb = resolveThumbnail(item)
                         onPlayEpisode(
                             Episode(
                                 title = item.episodeTitle,
                                 url = item.episodeUrl,
                                 dateStr = item.dateStr,
-                                thumbnailUrl = item.thumbnailUrl
+                                thumbnailUrl = resolvedThumb
                             )
                         )
                     },
@@ -828,7 +874,9 @@ private fun SpatialHeroCard2026(
     isInWatchlist: Boolean,
     onPlay: () -> Unit,
     onBrowseSeasons: () -> Unit,
-    onToggleWatchlist: () -> Unit
+    onToggleWatchlist: () -> Unit,
+    watchNowFocusRequester: FocusRequester = remember { FocusRequester() },
+    upFocusRequester: FocusRequester? = null
 ) {
     Surface(
         shape = RoundedCornerShape(24.dp),
@@ -926,56 +974,101 @@ private fun SpatialHeroCard2026(
                     horizontalArrangement = Arrangement.spacedBy(10.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
+                    var isWatchFocused by remember { mutableStateOf(false) }
                     Button(
                         onClick = onPlay,
                         colors = ButtonDefaults.buttonColors(
-                            containerColor = TextPrimary,
-                            contentColor = BgObsidian
+                            containerColor = if (isWatchFocused) AccentCrimson else TextPrimary,
+                            contentColor = if (isWatchFocused) Color.White else BgObsidian
                         ),
                         shape = RoundedCornerShape(14.dp),
+                        border = if (isWatchFocused) BorderStroke(2.5.dp, Color.White) else null,
+                        contentPadding = PaddingValues(horizontal = 12.dp, vertical = 0.dp),
                         modifier = Modifier
                             .weight(1f)
                             .height(46.dp)
+                            .focusRequester(watchNowFocusRequester)
+                            .focusProperties {
+                                if (upFocusRequester != null) {
+                                    up = upFocusRequester
+                                }
+                            }
+                            .zIndex(if (isWatchFocused) 10f else 0f)
+                            .graphicsLayer {
+                                scaleX = if (isWatchFocused) 1.05f else 1.0f
+                                scaleY = if (isWatchFocused) 1.05f else 1.0f
+                            }
+                            .onFocusChanged { isWatchFocused = it.isFocused }
                             .testTag("hero_watch_now_button")
                     ) {
-                        Icon(Icons.Filled.PlayArrow, contentDescription = null, modifier = Modifier.size(20.dp))
-                        Spacer(modifier = Modifier.width(6.dp))
-                        Text("Watch Latest", fontWeight = FontWeight.ExtraBold, fontSize = 13.sp)
+                        Icon(Icons.Filled.PlayArrow, contentDescription = null, modifier = Modifier.size(18.dp))
+                        Spacer(modifier = Modifier.width(4.dp))
+                        Text("Watch Latest", fontWeight = FontWeight.ExtraBold, fontSize = 12.5.sp, maxLines = 1, softWrap = false)
                     }
 
+                    var isSeasonsFocused by remember { mutableStateOf(false) }
                     OutlinedButton(
                         onClick = onBrowseSeasons,
                         shape = RoundedCornerShape(14.dp),
-                        border = BorderStroke(1.dp, Color(0x44FFFFFF)),
-                        colors = ButtonDefaults.outlinedButtonColors(
-                            containerColor = Color(0x33131724),
-                            contentColor = TextPrimary
+                        border = BorderStroke(
+                            if (isSeasonsFocused) 2.5.dp else 1.dp,
+                            if (isSeasonsFocused) Color.White else Color(0x44FFFFFF)
                         ),
+                        colors = ButtonDefaults.outlinedButtonColors(
+                            containerColor = if (isSeasonsFocused) Color.White else Color(0x33131724),
+                            contentColor = if (isSeasonsFocused) BgObsidian else TextPrimary
+                        ),
+                        contentPadding = PaddingValues(horizontal = 10.dp, vertical = 0.dp),
                         modifier = Modifier
                             .height(46.dp)
+                            .focusProperties {
+                                if (upFocusRequester != null) {
+                                    up = upFocusRequester
+                                }
+                            }
+                            .zIndex(if (isSeasonsFocused) 10f else 0f)
+                            .graphicsLayer {
+                                scaleX = if (isSeasonsFocused) 1.06f else 1.0f
+                                scaleY = if (isSeasonsFocused) 1.06f else 1.0f
+                            }
+                            .onFocusChanged { isSeasonsFocused = it.isFocused }
                             .testTag("hero_seasons_button")
                     ) {
                         Icon(Icons.Filled.Layers, contentDescription = null, modifier = Modifier.size(16.dp))
-                        Spacer(modifier = Modifier.width(6.dp))
+                        Spacer(modifier = Modifier.width(4.dp))
                         Text(
                             text = if (show.seasons.size > 1) "${show.seasons.size} Seasons" else "Episodes",
                             fontWeight = FontWeight.Bold,
-                            fontSize = 12.sp
+                            fontSize = 11.5.sp,
+                            maxLines = 1,
+                            softWrap = false
                         )
                     }
 
+                    var isWatchlistFocused by remember { mutableStateOf(false) }
                     IconButton(
                         onClick = onToggleWatchlist,
                         modifier = Modifier
                             .size(46.dp)
+                            .focusProperties {
+                                if (upFocusRequester != null) {
+                                    up = upFocusRequester
+                                }
+                            }
+                            .zIndex(if (isWatchlistFocused) 10f else 0f)
+                            .graphicsLayer {
+                                scaleX = if (isWatchlistFocused) 1.08f else 1.0f
+                                scaleY = if (isWatchlistFocused) 1.08f else 1.0f
+                            }
                             .clip(RoundedCornerShape(14.dp))
-                            .background(Color(0x33FFFFFF))
+                            .background(if (isWatchlistFocused) Color.White else Color(0x33FFFFFF))
+                            .onFocusChanged { isWatchlistFocused = it.isFocused }
                             .testTag("hero_watchlist_button")
                     ) {
                         Icon(
                             imageVector = if (isInWatchlist) Icons.Filled.Bookmark else Icons.Outlined.BookmarkBorder,
                             contentDescription = "Watchlist",
-                            tint = if (isInWatchlist) AccentGold else Color.White
+                            tint = if (isWatchlistFocused) BgObsidian else if (isInWatchlist) AccentGold else Color.White
                         )
                     }
                 }
@@ -1008,12 +1101,27 @@ private fun ShowsAndSeasonsHubView(
         ) {
             items(shows, key = { it.id }) { show ->
                 val isSelected = show.id == selectedShow.id
+                var isShowTabFocused by remember { mutableStateOf(false) }
                 Surface(
                     onClick = { onShowSelect(show) },
-                    color = if (isSelected) AccentCrimson else BgCard,
+                    color = when {
+                        isShowTabFocused -> Color.White
+                        isSelected -> AccentCrimson
+                        else -> BgCard
+                    },
                     shape = RoundedCornerShape(14.dp),
-                    border = BorderStroke(1.dp, if (isSelected) AccentCrimson else BorderSubtle),
-                    modifier = Modifier.testTag("hub_show_${show.id}")
+                    border = BorderStroke(
+                        if (isShowTabFocused) 2.5.dp else 1.dp,
+                        if (isShowTabFocused) Color.White else if (isSelected) AccentCrimson else BorderSubtle
+                    ),
+                    modifier = Modifier
+                        .zIndex(if (isShowTabFocused) 10f else 0f)
+                        .graphicsLayer {
+                            scaleX = if (isShowTabFocused) 1.06f else 1.0f
+                            scaleY = if (isShowTabFocused) 1.06f else 1.0f
+                        }
+                        .onFocusChanged { isShowTabFocused = it.isFocused }
+                        .testTag("hub_show_${show.id}")
                 ) {
                     Row(
                         verticalAlignment = Alignment.CenterVertically,
@@ -1031,13 +1139,13 @@ private fun ShowsAndSeasonsHubView(
                         Column {
                             Text(
                                 text = show.title,
-                                color = Color.White,
+                                color = if (isShowTabFocused) BgObsidian else Color.White,
                                 fontSize = 12.sp,
                                 fontWeight = FontWeight.Bold
                             )
                             Text(
                                 text = "${show.channel} • ${show.seasons.size} ${if (show.seasons.size == 1) "Season" else "Seasons"}",
-                                color = if (isSelected) Color(0xFFFFD6DE) else TextSecondary,
+                                color = if (isShowTabFocused) Color(0xFF334155) else if (isSelected) Color(0xFFFFD6DE) else TextSecondary,
                                 fontSize = 10.sp
                             )
                         }
@@ -1055,15 +1163,27 @@ private fun ShowsAndSeasonsHubView(
             ) {
                 items(selectedShow.seasons, key = { it.id }) { season ->
                     val isSeasonSelected = selectedSeason?.id == season.id
+                    var isSeasonFocused by remember { mutableStateOf(false) }
                     Surface(
                         onClick = { onSeasonSelect(season) },
-                        color = if (isSeasonSelected) Color(0x2600E5FF) else BgElevated,
+                        color = when {
+                            isSeasonFocused -> Color.White
+                            isSeasonSelected -> Color(0x2600E5FF)
+                            else -> BgElevated
+                        },
                         shape = RoundedCornerShape(50),
                         border = BorderStroke(
-                            1.dp,
-                            if (isSeasonSelected) AccentCyan else BorderSubtle
+                            if (isSeasonFocused) 2.5.dp else 1.dp,
+                            if (isSeasonFocused) Color.White else if (isSeasonSelected) AccentCyan else BorderSubtle
                         ),
-                        modifier = Modifier.testTag("season_pill_${season.id}")
+                        modifier = Modifier
+                            .zIndex(if (isSeasonFocused) 10f else 0f)
+                            .graphicsLayer {
+                                scaleX = if (isSeasonFocused) 1.07f else 1.0f
+                                scaleY = if (isSeasonFocused) 1.07f else 1.0f
+                            }
+                            .onFocusChanged { isSeasonFocused = it.isFocused }
+                            .testTag("season_pill_${season.id}")
                     ) {
                         Row(
                             verticalAlignment = Alignment.CenterVertically,
@@ -1074,15 +1194,15 @@ private fun ShowsAndSeasonsHubView(
                                     modifier = Modifier
                                         .size(6.dp)
                                         .clip(CircleShape)
-                                        .background(AccentCyan)
+                                        .background(if (isSeasonFocused) BgObsidian else AccentCyan)
                                 )
                                 Spacer(modifier = Modifier.width(6.dp))
                             }
                             Text(
                                 text = season.label,
-                                color = if (isSeasonSelected) AccentCyan else TextPrimary,
+                                color = if (isSeasonFocused) BgObsidian else if (isSeasonSelected) AccentCyan else TextPrimary,
                                 fontSize = 11.sp,
-                                fontWeight = if (isSeasonSelected) FontWeight.ExtraBold else FontWeight.Medium
+                                fontWeight = if (isSeasonSelected || isSeasonFocused) FontWeight.ExtraBold else FontWeight.Medium
                             )
                         }
                     }
@@ -1218,16 +1338,31 @@ private fun MoviesCinemaHubView(
             ) {
                 items(categories, key = { it.second }) { (label, url) ->
                     val isSelected = selectedCategory == url
+                    var isCatFocused by remember { mutableStateOf(false) }
                     Surface(
                         onClick = { onCategorySelect(url) },
-                        color = if (isSelected) AccentCrimson else BgCard,
+                        color = when {
+                            isCatFocused -> Color.White
+                            isSelected -> AccentCrimson
+                            else -> BgCard
+                        },
                         shape = RoundedCornerShape(50),
-                        border = BorderStroke(1.dp, if (isSelected) AccentCrimson else BorderSubtle),
-                        modifier = Modifier.testTag("movie_cat_${label.lowercase().replace(" ", "_")}")
+                        border = BorderStroke(
+                            if (isCatFocused) 2.5.dp else 1.dp,
+                            if (isCatFocused) Color.White else if (isSelected) AccentCrimson else BorderSubtle
+                        ),
+                        modifier = Modifier
+                            .zIndex(if (isCatFocused) 10f else 0f)
+                            .graphicsLayer {
+                                scaleX = if (isCatFocused) 1.07f else 1.0f
+                                scaleY = if (isCatFocused) 1.07f else 1.0f
+                            }
+                            .onFocusChanged { isCatFocused = it.isFocused }
+                            .testTag("movie_cat_${label.lowercase().replace(" ", "_")}")
                     ) {
                         Text(
                             text = label,
-                            color = Color.White,
+                            color = if (isCatFocused) BgObsidian else Color.White,
                             fontSize = 12.sp,
                             fontWeight = FontWeight.Bold,
                             modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
@@ -1283,20 +1418,21 @@ private fun MoviesCinemaHubView(
                 }
 
                 LazyColumn(
-                    contentPadding = PaddingValues(16.dp),
-                    verticalArrangement = Arrangement.spacedBy(12.dp),
+                    contentPadding = PaddingValues(horizontal = 16.dp, vertical = 12.dp),
+                    verticalArrangement = Arrangement.spacedBy(14.dp),
                     modifier = Modifier
                         .fillMaxSize()
                         .testTag("movies_list")
                 ) {
-                    val chunked = filteredMovies.chunked(2)
+                    val columns = 4
+                    val chunked = filteredMovies.chunked(columns)
                     items(chunked.size) { rowIdx ->
-                        val pair = chunked[rowIdx]
+                        val rowMovies = chunked[rowIdx]
                         Row(
                             modifier = Modifier.fillMaxWidth(),
                             horizontalArrangement = Arrangement.spacedBy(12.dp)
                         ) {
-                            for (movie in pair) {
+                            for (movie in rowMovies) {
                                 Box(modifier = Modifier.weight(1f)) {
                                     MovieGridCard2026(
                                         movie = movie,
@@ -1306,7 +1442,7 @@ private fun MoviesCinemaHubView(
                                     )
                                 }
                             }
-                            if (pair.size == 1) {
+                            repeat(columns - rowMovies.size) {
                                 Spacer(modifier = Modifier.weight(1f))
                             }
                         }
@@ -1322,13 +1458,23 @@ private fun ShowPosterCard2026(
     show: Show,
     onClick: () -> Unit
 ) {
+    var isFocused by remember { mutableStateOf(false) }
     Surface(
         onClick = onClick,
-        color = BgCard,
+        color = if (isFocused) Color(0xFF1C2338) else BgCard,
         shape = RoundedCornerShape(18.dp),
-        border = BorderStroke(1.dp, BorderSubtle),
+        border = BorderStroke(
+            if (isFocused) 2.5.dp else 1.dp,
+            if (isFocused) Color.White else BorderSubtle
+        ),
         modifier = Modifier
             .width(175.dp)
+            .zIndex(if (isFocused) 10f else 0f)
+            .graphicsLayer {
+                scaleX = if (isFocused) 1.06f else 1.0f
+                scaleY = if (isFocused) 1.06f else 1.0f
+            }
+            .onFocusChanged { isFocused = it.isFocused }
             .testTag("show_card_${show.id}")
     ) {
         Column {
@@ -1396,20 +1542,30 @@ private fun MoviePosterCard2026(
     movie: Episode,
     onClick: () -> Unit
 ) {
+    var isFocused by remember { mutableStateOf(false) }
     Surface(
         onClick = onClick,
-        color = BgCard,
+        color = if (isFocused) Color(0xFF1C2338) else BgCard,
         shape = RoundedCornerShape(16.dp),
-        border = BorderStroke(1.dp, BorderSubtle),
+        border = BorderStroke(
+            if (isFocused) 2.5.dp else 1.dp,
+            if (isFocused) Color.White else BorderSubtle
+        ),
         modifier = Modifier
             .width(148.dp)
+            .zIndex(if (isFocused) 10f else 0f)
+            .graphicsLayer {
+                scaleX = if (isFocused) 1.06f else 1.0f
+                scaleY = if (isFocused) 1.06f else 1.0f
+            }
+            .onFocusChanged { isFocused = it.isFocused }
             .testTag("movie_home_card_${movie.url.hashCode()}")
     ) {
         Column {
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(195.dp)
+                    .height(185.dp)
             ) {
                 AsyncImage(
                     model = movie.thumbnailUrl,
@@ -1461,20 +1617,30 @@ private fun MovieGridCard2026(
     onClick: () -> Unit,
     onToggleWatchlist: () -> Unit
 ) {
+    var isFocused by remember { mutableStateOf(false) }
     Surface(
         onClick = onClick,
-        color = BgCard,
-        shape = RoundedCornerShape(18.dp),
-        border = BorderStroke(1.dp, BorderSubtle),
+        color = if (isFocused) Color(0xFF1C2338) else BgCard,
+        shape = RoundedCornerShape(16.dp),
+        border = BorderStroke(
+            if (isFocused) 2.5.dp else 1.dp,
+            if (isFocused) Color.White else BorderSubtle
+        ),
         modifier = Modifier
             .fillMaxWidth()
+            .zIndex(if (isFocused) 10f else 0f)
+            .graphicsLayer {
+                scaleX = if (isFocused) 1.05f else 1.0f
+                scaleY = if (isFocused) 1.05f else 1.0f
+            }
+            .onFocusChanged { isFocused = it.isFocused }
             .testTag("movie_grid_card_${movie.url.hashCode()}")
     ) {
         Column {
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(210.dp)
+                    .height(155.dp)
             ) {
                 AsyncImage(
                     model = movie.thumbnailUrl,
@@ -1496,14 +1662,14 @@ private fun MovieGridCard2026(
                     shape = RoundedCornerShape(6.dp),
                     modifier = Modifier
                         .align(Alignment.TopStart)
-                        .padding(8.dp)
+                        .padding(6.dp)
                 ) {
                     Text(
                         text = movie.qualityBadge,
                         color = AccentGold,
-                        fontSize = 9.sp,
+                        fontSize = 8.5.sp,
                         fontWeight = FontWeight.ExtraBold,
-                        modifier = Modifier.padding(horizontal = 6.dp, vertical = 3.dp)
+                        modifier = Modifier.padding(horizontal = 5.dp, vertical = 2.dp)
                     )
                 }
                 IconButton(
@@ -1511,22 +1677,23 @@ private fun MovieGridCard2026(
                     modifier = Modifier
                         .align(Alignment.TopEnd)
                         .padding(4.dp)
-                        .size(32.dp)
+                        .size(28.dp)
                         .clip(CircleShape)
                         .background(Color(0x9906070B))
+                        .focusProperties { canFocus = false }
                 ) {
                     Icon(
                         imageVector = if (isInWatchlist) Icons.Filled.Bookmark else Icons.Outlined.BookmarkBorder,
                         contentDescription = "Save Movie",
                         tint = if (isInWatchlist) AccentGold else Color.White,
-                        modifier = Modifier.size(16.dp)
+                        modifier = Modifier.size(14.dp)
                     )
                 }
                 Box(
                     modifier = Modifier
                         .align(Alignment.BottomEnd)
-                        .padding(10.dp)
-                        .size(34.dp)
+                        .padding(8.dp)
+                        .size(30.dp)
                         .clip(CircleShape)
                         .background(AccentCrimson),
                     contentAlignment = Alignment.Center
@@ -1535,26 +1702,27 @@ private fun MovieGridCard2026(
                         imageVector = Icons.Filled.PlayArrow,
                         contentDescription = null,
                         tint = Color.White,
-                        modifier = Modifier.size(20.dp)
+                        modifier = Modifier.size(18.dp)
                     )
                 }
             }
-            Column(modifier = Modifier.padding(12.dp)) {
+            Column(modifier = Modifier.padding(10.dp)) {
                 Text(
                     text = movie.title,
                     color = TextPrimary,
-                    fontSize = 13.sp,
+                    fontSize = 12.sp,
                     fontWeight = FontWeight.Bold,
                     maxLines = 2,
                     minLines = 2,
                     overflow = TextOverflow.Ellipsis
                 )
-                Spacer(modifier = Modifier.height(4.dp))
+                Spacer(modifier = Modifier.height(3.dp))
                 Text(
                     text = movie.dateStr,
                     color = AccentCyan,
-                    fontSize = 10.sp,
-                    fontWeight = FontWeight.SemiBold
+                    fontSize = 9.5.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    maxLines = 1
                 )
             }
         }
@@ -1567,13 +1735,23 @@ private fun EpisodeLandscapeCard2026(
     showTitle: String,
     onClick: () -> Unit
 ) {
+    var isFocused by remember { mutableStateOf(false) }
     Surface(
         onClick = onClick,
-        color = BgCard,
+        color = if (isFocused) Color(0xFF1C2338) else BgCard,
         shape = RoundedCornerShape(16.dp),
-        border = BorderStroke(1.dp, BorderSubtle),
+        border = BorderStroke(
+            if (isFocused) 2.5.dp else 1.dp,
+            if (isFocused) Color.White else BorderSubtle
+        ),
         modifier = Modifier
             .width(220.dp)
+            .zIndex(if (isFocused) 10f else 0f)
+            .graphicsLayer {
+                scaleX = if (isFocused) 1.06f else 1.0f
+                scaleY = if (isFocused) 1.06f else 1.0f
+            }
+            .onFocusChanged { isFocused = it.isFocused }
             .testTag("ep_card_${episode.url.hashCode()}")
     ) {
         Column {
@@ -1653,13 +1831,23 @@ private fun Clean2026EpisodeRow(
     onBookmark: () -> Unit,
     onInfo: () -> Unit
 ) {
+    var isFocused by remember { mutableStateOf(false) }
     Surface(
         onClick = onPlay,
-        color = BgCard,
+        color = if (isFocused) Color(0xFF1C2338) else BgCard,
         shape = RoundedCornerShape(16.dp),
-        border = BorderStroke(1.dp, BorderSubtle),
+        border = BorderStroke(
+            if (isFocused) 2.5.dp else 1.dp,
+            if (isFocused) Color.White else BorderSubtle
+        ),
         modifier = Modifier
             .fillMaxWidth()
+            .zIndex(if (isFocused) 10f else 0f)
+            .graphicsLayer {
+                scaleX = if (isFocused) 1.03f else 1.0f
+                scaleY = if (isFocused) 1.03f else 1.0f
+            }
+            .onFocusChanged { isFocused = it.isFocused }
             .testTag("episode_item_$index")
     ) {
         Row(
@@ -1739,7 +1927,10 @@ private fun Clean2026EpisodeRow(
                 )
             }
 
-            IconButton(onClick = onBookmark) {
+            IconButton(
+                onClick = onBookmark,
+                modifier = Modifier.focusProperties { canFocus = false }
+            ) {
                 Icon(
                     imageVector = if (isBookmarked) Icons.Filled.Bookmark else Icons.Outlined.BookmarkBorder,
                     contentDescription = "Watchlist",
@@ -1754,6 +1945,7 @@ private fun Clean2026EpisodeRow(
 @Composable
 private fun ContinueWatchingRail2026(
     history: List<WatchHistoryItem>,
+    resolveThumbnail: (WatchHistoryItem) -> String = { it.thumbnailUrl },
     onItemClick: (WatchHistoryItem) -> Unit,
     onClear: () -> Unit
 ) {
@@ -1773,21 +1965,37 @@ private fun ContinueWatchingRail2026(
                     (item.lastPositionMs.toFloat() / item.durationMs.toFloat()).coerceIn(0.05f, 0.98f)
                 } else 0.25f
 
+                val resolvedThumb = remember(item.episodeUrl, item.episodeTitle, item.thumbnailUrl) {
+                    resolveThumbnail(item).ifBlank { VijayTvRepository.BIGG_BOSS_POSTER }
+                }
+
+                var isFocused by remember { mutableStateOf(false) }
+
                 Surface(
                     onClick = { onItemClick(item) },
-                    color = BgCard,
+                    color = if (isFocused) Color(0xFF1C2338) else BgCard,
                     shape = RoundedCornerShape(14.dp),
-                    border = BorderStroke(1.dp, BorderSubtle),
-                    modifier = Modifier.width(200.dp)
+                    border = BorderStroke(
+                        if (isFocused) 2.5.dp else 1.dp,
+                        if (isFocused) Color.White else BorderSubtle
+                    ),
+                    modifier = Modifier
+                        .width(205.dp)
+                        .zIndex(if (isFocused) 10f else 0f)
+                        .graphicsLayer {
+                            scaleX = if (isFocused) 1.06f else 1.0f
+                            scaleY = if (isFocused) 1.06f else 1.0f
+                        }
+                        .onFocusChanged { isFocused = it.isFocused }
                 ) {
                     Column {
                         Box(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .height(106.dp)
+                                .height(110.dp)
                         ) {
                             AsyncImage(
-                                model = item.thumbnailUrl.ifBlank { VijayTvRepository.BIGG_BOSS_POSTER },
+                                model = resolvedThumb,
                                 contentDescription = item.episodeTitle,
                                 contentScale = ContentScale.Crop,
                                 modifier = Modifier.fillMaxSize()
@@ -1865,17 +2073,30 @@ private fun SectionHeader2026(
             )
         }
         if (actionLabel != null) {
-            TextButton(onClick = onAction) {
+            var isActionFocused by remember { mutableStateOf(false) }
+            TextButton(
+                onClick = onAction,
+                border = if (isActionFocused) BorderStroke(2.dp, Color.White) else null,
+                colors = ButtonDefaults.textButtonColors(
+                    containerColor = if (isActionFocused) Color(0x33FFFFFF) else Color.Transparent
+                ),
+                modifier = Modifier
+                    .graphicsLayer {
+                        scaleX = if (isActionFocused) 1.06f else 1.0f
+                        scaleY = if (isActionFocused) 1.06f else 1.0f
+                    }
+                    .onFocusChanged { isActionFocused = it.isFocused }
+            ) {
                 Text(
                     text = actionLabel,
-                    color = AccentCyan,
+                    color = if (isActionFocused) Color.White else AccentCyan,
                     fontSize = 12.sp,
                     fontWeight = FontWeight.Bold
                 )
                 Icon(
                     imageVector = Icons.Filled.ChevronRight,
                     contentDescription = null,
-                    tint = AccentCyan,
+                    tint = if (isActionFocused) Color.White else AccentCyan,
                     modifier = Modifier.size(16.dp)
                 )
             }
@@ -1942,13 +2163,23 @@ private fun LiveBroadcastStudioView(
         )
 
         itemsIndexed(liveServers) { idx, (name, url, badge) ->
+            var isServerFocused by remember { mutableStateOf(false) }
             Surface(
                 onClick = { onPlayServer(url, name) },
-                color = BgCard,
+                color = if (isServerFocused) Color(0xFF1C2338) else BgCard,
                 shape = RoundedCornerShape(16.dp),
-                border = BorderStroke(1.dp, BorderSubtle),
+                border = BorderStroke(
+                    if (isServerFocused) 2.5.dp else 1.dp,
+                    if (isServerFocused) Color.White else BorderSubtle
+                ),
                 modifier = Modifier
                     .fillMaxWidth()
+                    .zIndex(if (isServerFocused) 10f else 0f)
+                    .graphicsLayer {
+                        scaleX = if (isServerFocused) 1.03f else 1.0f
+                        scaleY = if (isServerFocused) 1.03f else 1.0f
+                    }
+                    .onFocusChanged { isServerFocused = it.isFocused }
                     .testTag("live_server_card_$idx")
             ) {
                 Row(
@@ -1975,10 +2206,14 @@ private fun LiveBroadcastStudioView(
                         modifier = Modifier
                             .size(40.dp)
                             .clip(CircleShape)
-                            .background(AccentCrimson),
+                            .background(if (isServerFocused) Color.White else AccentCrimson),
                         contentAlignment = Alignment.Center
                     ) {
-                        Icon(Icons.Filled.PlayArrow, contentDescription = "Play Live", tint = Color.White)
+                        Icon(
+                            Icons.Filled.PlayArrow,
+                            contentDescription = "Play Live",
+                            tint = if (isServerFocused) BgObsidian else Color.White
+                        )
                     }
                 }
             }

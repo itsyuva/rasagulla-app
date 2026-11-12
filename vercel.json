@@ -1,0 +1,30 @@
+{
+  "version": 2,
+  "cleanUrls": true,
+  "trailingSlash": false,
+  "functions": {
+    "api/*.js": {
+      "maxDuration": 15,
+      "includeFiles": "app/src/main/res/drawable/*.png"
+    }
+  },
+  "headers": [
+    {
+      "source": "/api/(.*)",
+      "headers": [
+        { "key": "Access-Control-Allow-Credentials", "value": "true" },
+        { "key": "Access-Control-Allow-Origin", "value": "*" },
+        { "key": "Access-Control-Allow-Methods", "value": "GET,OPTIONS,HEAD" },
+        { "key": "Access-Control-Allow-Headers", "value": "X-Requested-With, Content-Type, Accept, Range" }
+      ]
+    }
+  ],
+  "rewrites": [
+    { "source": "/assets/cutouts/:file", "destination": "/api/cutout.js?file=:file" },
+    { "source": "/api/cutout", "destination": "/api/cutout.js" },
+    { "source": "/api/catalog", "destination": "/api/catalog.js" },
+    { "source": "/api/stream", "destination": "/api/stream.js" },
+    { "source": "/api/proxy", "destination": "/api/proxy.js" },
+    { "source": "/((?!api/|assets/).*)", "destination": "/index.html" }
+  ]
+}

@@ -99,16 +99,22 @@ data class FootballStreamMirror(
 @Serializable
 data class FootballMatch(
     val id: String,
-    val tournament: String, // "Premier League", "UEFA Champions League", "La Liga", "Serie A", "ISL"
+    val tournament: String, // "Premier League", "La Liga", "Serie A", "Bundesliga", "Ligue 1", "UEFA Champions League", "UEFA Europa League", "UEFA Conference League"
     val homeTeam: String,
     val awayTeam: String,
     val homeCrestUrl: String = "",
     val awayCrestUrl: String = "",
-    val kickoffTime: String, // e.g., "LIVE • 67'" or "Tonight • 00:30 IST"
-    val scoreOrStatus: String, // e.g., "2 - 1" or "KICKOFF SOON"
+    val kickoffTime: String, // e.g., "FT", "LIVE • 78'", "Tonight • 20:45"
+    val scoreOrStatus: String, // e.g., "3 - 1" or "2 - 2"
     val isLive: Boolean = true,
     val venue: String = "Wembley / Santiago Bernabéu",
     val backdropUrl: String = "",
+    val highlightsUrl: String = "",
+    val highlightsTitle: String = "",
+    val highlightsChannel: String = "", // "Premier League Official", "Stadium Astro", "LaLiga Santander", "Serie A Official"
+    val goalScorers: List<String> = emptyList(), // e.g. ["Haaland 23', 71'", "Saka 43'"]
+    val homeStats: Map<String, String> = emptyMap(),
+    val awayStats: Map<String, String> = emptyMap(),
     val mirrors: List<FootballStreamMirror> = emptyList()
 )
 
