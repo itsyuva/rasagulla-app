@@ -5,7 +5,7 @@
   "functions": {
     "api/*.js": {
       "maxDuration": 15,
-      "includeFiles": "app/src/main/res/drawable/*.png"
+      "includeFiles": "{public/assets/cutouts/*.png,app/src/main/res/drawable/*.png}"
     }
   },
   "headers": [
@@ -20,7 +20,6 @@
     }
   ],
   "rewrites": [
-    { "source": "/assets/cutouts/:file", "destination": "/api/cutout.js?file=:file" },
     { "source": "/api/cutout", "destination": "/api/cutout.js" },
     { "source": "/api/image", "destination": "/api/image.js" },
     { "source": "/api/catalog", "destination": "/api/catalog.js" },

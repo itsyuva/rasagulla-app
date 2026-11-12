@@ -418,13 +418,13 @@ input {
 }
 
 .cluster-cutout-node.inactive img {
-  filter: grayscale(100%) brightness(0.75) sepia(35%) hue-rotate(188deg) saturate(185%);
-  opacity: 0.76;
+  filter: grayscale(80%) brightness(0.88) contrast(1.06);
+  opacity: 0.86;
 }
 
 .cluster-cutout-node.focused {
   z-index: 16 !important;
-  transform: translateX(-50%) scale(1.15);
+  transform: translateX(-50%) scale(1.18);
 }
 
 .cluster-cutout-node.focused img {
@@ -1324,18 +1324,20 @@ input {
     gap: 24px;
   }
   .cluster-portal-stage {
-    height: 370px;
+    height: 380px;
   }
   .cluster-cutout-node {
-    width: 142px;
-    height: 196px;
-    bottom: 52px;
+    width: 158px;
+    height: 232px;
+    bottom: 54px;
   }
   .cluster-hud-header {
     top: 44px;
+    left: 20px !important;
+    right: 20px;
   }
   .cluster-hud-title {
-    font-size: 18px;
+    font-size: 20px;
   }
   .movies-grid-4col {
     grid-template-columns: repeat(2, minmax(0, 1fr));

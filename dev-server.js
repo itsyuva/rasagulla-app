@@ -66,7 +66,7 @@ const server = http.createServer(async (req, res) => {
     return cutoutHandler(req, vRes);
   }
   if (parsed.pathname && parsed.pathname.startsWith("/assets/cutouts/")) {
-    req.query.name = path.basename(parsed.pathname, ".png");
+    req.query.file = path.basename(parsed.pathname);
     return cutoutHandler(req, vRes);
   }
 

@@ -15,7 +15,16 @@ const ALLOWED_FILES = new Set([
 ]);
 
 module.exports = function handler(req, res) {
-  const file = path.basename(req.query.file || "");
+  let raw = req.query.file || req.query.name || "";
+  if (!raw && req.url) {
+    const cleanPath = req.url.split("?")[0];
+    raw = path.basename(cleanPath);
+  }
+  let file = path.basename(raw);
+  if (file && !file.endsWith(".png")) {
+    file = `${file}.png`;
+  }
+
   if (!ALLOWED_FILES.has(file)) {
     res.statusCode = 404;
     return res.end("Not found");

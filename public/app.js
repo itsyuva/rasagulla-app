@@ -132,35 +132,14 @@ const SHOW_METADATA = {
  */
 const HERO_CHARACTERS = [
   {
-    id: "char_vjs",
-    title: "Bigg Boss 10",
-    subtitle: "Vijay Sethupathi • 24/7 Live & Episodes",
-    cutoutUrl: "/assets/cutouts/cutout_vjs.png",
-    accentHex: "#FF2A54",
-    targetFractionX: 0.13,
-    targetShow: "Bigg Boss Tamil",
-    targetTab: "home",
-    openShelf: true,
-  },
-  {
-    id: "char_pugazh",
-    title: "Cooku with Comali",
-    subtitle: "Pugazh • Comedy Kitchen",
-    cutoutUrl: "/assets/cutouts/cutout_cwc.png",
-    accentHex: "#FFC857",
-    targetFractionX: 0.25,
-    targetShow: "Cooku with Comali",
-    targetTab: "home",
-    openShelf: true,
-  },
-  {
-    id: "char_anirudh",
-    title: "Super Singer",
-    subtitle: "Anirudh • Musical Battle",
-    cutoutUrl: "/assets/cutouts/cutout_supersinger.png",
-    accentHex: "#00E5FF",
-    targetFractionX: 0.37,
-    targetShow: "Super Singer",
+    id: "char_samantha",
+    title: "MasterChef Tamil",
+    subtitle: "Samantha • Sony Vizha Culinary Finale",
+    cutoutUrl: "/assets/cutouts/img_cutout_samantha.png",
+    accentHex: "#FF8A00",
+    targetFractionX: 0.14,
+    depthScale: 0.94,
+    targetShow: "Celebrity MasterChef Tamil",
     targetTab: "home",
     openShelf: true,
   },
@@ -168,45 +147,73 @@ const HERO_CHARACTERS = [
     id: "char_gopinath",
     title: "Neeya Naana",
     subtitle: "Gopinath • Clash of Perspectives",
-    cutoutUrl: "/assets/cutouts/cutout_neeyanaana.png",
+    cutoutUrl: "/assets/cutouts/img_cutout_gopinath.png",
     accentHex: "#B388FF",
-    targetFractionX: 0.49,
+    targetFractionX: 0.26,
+    depthScale: 0.92,
     targetShow: "Neeya Naana",
     targetTab: "home",
     openShelf: true,
   },
   {
-    id: "char_chef",
-    title: "MasterChef Tamil",
-    subtitle: "Chef Special • Culinary Finale",
-    cutoutUrl: "/assets/cutouts/cutout_masterchef.png",
-    accentHex: "#FF8A00",
-    targetFractionX: 0.61,
-    targetShow: "Celebrity MasterChef Tamil",
+    id: "char_vijay",
+    title: "Tamil Movies",
+    subtitle: "Thalapathy Vijay • 1080p Blockbusters",
+    cutoutUrl: "/assets/cutouts/img_cutout_vijay.png",
+    accentHex: "#00E676",
+    targetFractionX: 0.38,
+    depthScale: 1.02,
+    targetShow: "Bigg Boss Tamil",
+    targetTab: "movies",
+    openShelf: false,
+  },
+  {
+    id: "char_kamal",
+    title: "Bigg Boss 10",
+    subtitle: "Kamal Haasan • 24/7 Live & Daily Episodes",
+    cutoutUrl: "/assets/cutouts/img_cutout_kamal.png",
+    accentHex: "#FF2A54",
+    targetFractionX: 0.50,
+    depthScale: 1.05,
+    targetShow: "Bigg Boss Tamil",
     targetTab: "home",
     openShelf: true,
   },
   {
-    id: "char_allshows",
-    title: "All Star Shows",
-    subtitle: "Complete TV Shows Hub",
-    cutoutUrl: "/assets/cutouts/cutout_allshows.png",
+    id: "char_vjs",
+    title: "Vijay TV Hits",
+    subtitle: "Vijay Sethupathi • All Star Shows Hub",
+    cutoutUrl: "/assets/cutouts/img_cutout_vijaysethupathi.png",
     accentHex: "#FF4081",
-    targetFractionX: 0.74,
+    targetFractionX: 0.62,
+    depthScale: 1.02,
     targetShow: "Bigg Boss Tamil",
     targetTab: "shows",
     openShelf: false,
   },
   {
-    id: "char_movies",
-    title: "Latest Movies",
-    subtitle: "2026 Tamil Blockbusters • 1080p",
-    cutoutUrl: "/assets/cutouts/cutout_movies.png",
-    accentHex: "#00E676",
-    targetFractionX: 0.87,
-    targetShow: "Bigg Boss Tamil",
-    targetTab: "movies",
-    openShelf: false,
+    id: "char_anirudh",
+    title: "Super Singer",
+    subtitle: "Anirudh • Musical Battle",
+    cutoutUrl: "/assets/cutouts/img_cutout_anirudh.png",
+    accentHex: "#00E5FF",
+    targetFractionX: 0.74,
+    depthScale: 0.92,
+    targetShow: "Super Singer",
+    targetTab: "home",
+    openShelf: true,
+  },
+  {
+    id: "char_chef",
+    title: "Cooku with Comali",
+    subtitle: "Pugazh & Chef Damu • Comedy Kitchen",
+    cutoutUrl: "/assets/cutouts/img_cutout_chef.png",
+    accentHex: "#FFC857",
+    targetFractionX: 0.86,
+    depthScale: 0.94,
+    targetShow: "Cooku with Comali",
+    targetTab: "home",
+    openShelf: true,
   },
 ];
 
@@ -333,7 +340,7 @@ const state = {
   activeTab: "home", // home | shows | movies | live | mylist
   selectedShow: "Bigg Boss Tamil",
   selectedSeason: null,
-  heroIndex: 0,
+  heroIndex: 3,
   shelfOpenForShow: null,
   episodes: [...INITIAL_EPISODES],
   movies: [...INITIAL_MOVIES],
@@ -571,7 +578,11 @@ function renderLeftRail() {
     <aside class="tv-left-rail" aria-label="Main Navigation">
       <div class="brand-header" tabindex="0" data-focusable data-focus-id="rail-brand" onclick="window.__switchTab('home')">
         <div class="brand-emblem">
-          <img src="/assets/ic_launcher_playstore.png" alt="" onerror="this.style.display='none'" />
+          <img
+            src="/assets/cutouts/img_rasagulla_icon.png"
+            alt=""
+            onerror="if(!this.dataset.fb){this.dataset.fb='1';this.src='/api/cutout?file=img_rasagulla_icon.png';}"
+          />
         </div>
         <div>
           <div class="brand-title">Rasagulla</div>
@@ -610,8 +621,12 @@ function renderSleekTopBar() {
   return `
     <header class="sleek-top-bar">
       <div class="mobile-brand" onclick="window.__switchTab('home')">
-        <div class="brand-emblem" style="width:34px; height:34px; border-radius:9px;">
-          <img src="/assets/ic_launcher_playstore.png" alt="" onerror="this.style.display='none'" />
+        <div class="brand-emblem" style="width:36px; height:36px; border-radius:10px;">
+          <img
+            src="/assets/cutouts/img_rasagulla_icon.png"
+            alt=""
+            onerror="if(!this.dataset.fb){this.dataset.fb='1';this.src='/api/cutout?file=img_rasagulla_icon.png';}"
+          />
         </div>
         <div>
           <div class="brand-title" style="font-size:17px;">Rasagulla</div>
@@ -657,8 +672,8 @@ function renderSleekTopBar() {
 }
 
 function renderClusterPortalHero() {
-  const focusedChar = HERO_CHARACTERS[state.heroIndex] || HERO_CHARACTERS[0];
-  const hudLeftPct = Math.min(72, Math.max(12, Math.round(focusedChar.targetFractionX * 100 - 12)));
+  const focusedChar = HERO_CHARACTERS[state.heroIndex] || HERO_CHARACTERS[3];
+  const hudLeftPct = Math.min(62, Math.max(8, Math.round(focusedChar.targetFractionX * 100 - 14)));
 
   return `
     <section class="cluster-portal-stage" aria-label="Featured Shows & Characters">
@@ -666,7 +681,7 @@ function renderClusterPortalHero() {
         class="cluster-radial-glow"
         style="background: radial-gradient(circle at ${Math.round(
           focusedChar.targetFractionX * 100
-        )}% 58%, ${focusedChar.accentHex}44 0%, ${focusedChar.accentHex}14 36%, transparent 72%);"
+        )}% 58%, ${focusedChar.accentHex}55 0%, ${focusedChar.accentHex}1c 38%, transparent 74%);"
       ></div>
 
       <div class="cluster-top-badge">
@@ -694,7 +709,9 @@ function renderClusterPortalHero() {
       <div class="cluster-cutouts-layer">
         ${HERO_CHARACTERS.map((char, idx) => {
           const isFocused = idx === state.heroIndex;
-          const zIdx = isFocused ? 16 : 6 - Math.min(5, Math.abs(idx - state.heroIndex));
+          const dist = Math.abs(idx - state.heroIndex);
+          const zIdx = isFocused ? 16 : Math.max(1, 10 - dist);
+          const fileName = char.cutoutUrl.split("/").pop();
           return `
             <div
               class="cluster-cutout-node ${isFocused ? "focused" : "inactive"}"
@@ -706,7 +723,7 @@ function renderClusterPortalHero() {
                 src="${char.cutoutUrl}"
                 alt=""
                 draggable="false"
-                onerror="this.style.opacity='0'"
+                onerror="if(!this.dataset.fb){this.dataset.fb='1';this.src='/api/cutout?file=${fileName}';}"
               />
             </div>
           `;
@@ -737,21 +754,6 @@ function renderClusterPortalHero() {
             ${ICONS.play}
             <span>Explore ${escapeHtml(focusedChar.title)}</span>
           </button>
-
-          ${
-            focusedChar.openShelf
-              ? `
-            <button
-              class="cluster-secondary-btn"
-              data-focusable
-              data-focus-id="hero-all-seasons-btn"
-              onclick="window.__openShowHub('${escapeAttr(focusedChar.targetShow)}')"
-            >
-              <span>All Episodes</span>
-            </button>
-          `
-              : ""
-          }
         </div>
 
         <button
