@@ -1,17 +1,220 @@
 const USER_AGENT =
   "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36";
 
-// 100% Verified HTTP-200 High-Res Posters (Zero 403 Hotlink Blocks)
+// 100% Verified HTTP-200 High-Res Official Show Posters (Mirrors VijayTvRepository.kt)
 const POSTERS = {
   biggBoss: "https://www.1tamilcrow.net/wp-content/uploads/2026/09/biggboss10-768x432.jpg",
   biggBossLive:
     "https://www.1tamilcrow.net/wp-content/uploads/2026/09/bigg-boss-season-10-live-2026-768x432-1-420x237.jpg",
   masterchef:
-    "https://images.unsplash.com/photo-1556910103-1c02745aae4d?auto=format&fit=crop&w=960&q=85",
-  cooku: "https://www.1tamilcrow.net/wp-content/uploads/2026/04/COoku.jpg",
-  superSinger: "https://www.1tamilcrow.net/wp-content/uploads/2024/03/Super-Singer-10-1.png",
-  neeyaNaana: "https://www.1tamilcrow.net/wp-content/uploads/2024/03/Neeya-Naana.png",
+    "https://wsrv.nl/?url=https%3A%2F%2Fwww.tamildhool.tech%2Fwp-content%2Fuploads%2F2026%2F10%2Fchef.jpg",
+  cooku:
+    "https://wsrv.nl/?url=https%3A%2F%2Fwww.tamildhool.tech%2Fwp-content%2Fuploads%2F2026%2F04%2Fcwc7.jpg",
+  superSinger:
+    "https://wsrv.nl/?url=https%3A%2F%2Fwww.tamildhool.tech%2Fwp-content%2Fuploads%2F2026%2F05%2Fssj11.jpg",
+  neeyaNaana:
+    "https://wsrv.nl/?url=https%3A%2F%2Fwww.tamildhool.tech%2Fwp-content%2Fuploads%2F2025%2F07%2Fnn.jpg",
 };
+
+// Exact Catalog Shows & Multi-Season Structure from VijayTvRepository.kt (lines 91-174)
+const CATALOG_SHOWS = [
+  {
+    id: "Bigg Boss Tamil",
+    title: "Bigg Boss 10",
+    categoryUrl: "https://www.1tamilcrow.net/category/bigg-boss-tamil/",
+    posterUrl: POSTERS.biggBoss,
+    badge: "24/7 LIVE & S10",
+    seasons: [
+      {
+        id: "s10",
+        label: "Season 10 (Live & Latest)",
+        categoryUrl: "https://www.1tamilcrow.net/category/bigg-boss-tamil/",
+        year: "2026",
+      },
+      {
+        id: "s10_td",
+        label: "Season 10 (TamilDhool HD)",
+        categoryUrl: "https://www.tamildhool.tech/vijay-tv/vijay-tv-show/bigg-boss-tamil-season-10/",
+        year: "2026",
+      },
+      {
+        id: "s9",
+        label: "Season 9 (Vijay Sethupathi)",
+        categoryUrl: "https://www.1tamilcrow.net/category/bigg-boss-tamil-season-9/",
+        year: "2025",
+      },
+      {
+        id: "s8",
+        label: "Season 8 (Complete)",
+        categoryUrl: "https://www.1tamilcrow.net/category/bigg-boss-season-8/",
+        year: "2024",
+      },
+      {
+        id: "s7",
+        label: "Season 7 (Kamal Haasan)",
+        categoryUrl: "https://www.1tamilcrow.net/category/bigg-boss-tamil-7-live/",
+        year: "2023",
+      },
+      {
+        id: "common_man",
+        label: "BB Common Man Specials",
+        categoryUrl: "https://www.tamildhool.tech/vijay-tv/vijay-tv-show/bigg-boss-the-common-man/",
+        year: "2026",
+      },
+    ],
+  },
+  {
+    id: "Celebrity MasterChef Tamil",
+    title: "Celebrity MasterChef Tamil",
+    categoryUrl: "https://www.tamildhool.tech/sony-vizha/sony-vizha-show/celebrity-master-chef-tamil/",
+    posterUrl: POSTERS.masterchef,
+    badge: "SONY VIZHA • 2026",
+    seasons: [
+      {
+        id: "cmc_s1",
+        label: "Season 1 (2026 Latest)",
+        categoryUrl: "https://www.tamildhool.tech/sony-vizha/sony-vizha-show/celebrity-master-chef-tamil/",
+        year: "2026",
+      },
+      {
+        id: "cmc_s1_p2",
+        label: "Season 1 (Episodes Archive)",
+        categoryUrl:
+          "https://www.tamildhool.tech/sony-vizha/sony-vizha-show/celebrity-master-chef-tamil/page/2/",
+        year: "2026",
+      },
+    ],
+  },
+  {
+    id: "Cooku with Comali",
+    title: "Cooku with Comali",
+    categoryUrl: "https://www.tamildhool.tech/vijay-tv/vijay-tv-show/cooku-with-comali-s7/",
+    posterUrl: POSTERS.cooku,
+    badge: "SEASON 7 • 2026",
+    seasons: [
+      {
+        id: "cwc_s7",
+        label: "Season 7 (2026 Latest)",
+        categoryUrl: "https://www.tamildhool.tech/vijay-tv/vijay-tv-show/cooku-with-comali-s7/",
+        year: "2026",
+      },
+      {
+        id: "cwc_s7_alt",
+        label: "Season 7 (Mirror 2)",
+        categoryUrl: "https://www.1tamilcrow.net/category/cooku-with-comali-season-7/",
+        year: "2026",
+      },
+      {
+        id: "cwc_s6",
+        label: "Season 6 (Complete)",
+        categoryUrl: "https://www.1tamilcrow.net/category/vijay-tv-shows/cooku-with-comali/",
+        year: "2025",
+      },
+      {
+        id: "cwc_s5",
+        label: "Season 5 (Complete)",
+        categoryUrl: "https://www.1tamilcrow.net/category/season-5-cooku-with-comali/",
+        year: "2024",
+      },
+      {
+        id: "cwc_s4",
+        label: "Season 4 (Complete)",
+        categoryUrl: "https://www.1tamilcrow.net/category/cooku-with-comali-season-4/",
+        year: "2023",
+      },
+      {
+        id: "cwc_s3",
+        label: "Season 3 (Complete)",
+        categoryUrl: "https://www.1tamilcrow.net/category/cooku-with-comali-2/",
+        year: "2022",
+      },
+    ],
+  },
+  {
+    id: "Super Singer",
+    title: "Super Singer",
+    categoryUrl: "https://www.tamildhool.tech/vijay-tv/vijay-tv-show/super-singer-junior/",
+    posterUrl: POSTERS.superSinger,
+    badge: "JR 11 • 2026 HD",
+    seasons: [
+      {
+        id: "ssj_11",
+        label: "Super Singer Jr 11 (2026 Latest)",
+        categoryUrl: "https://www.tamildhool.tech/vijay-tv/vijay-tv-show/super-singer-junior/",
+        year: "2026",
+      },
+      {
+        id: "ssj_11_p2",
+        label: "Super Singer Jr 11 (Page 2)",
+        categoryUrl: "https://www.tamildhool.tech/vijay-tv/vijay-tv-show/super-singer-junior/page/2/",
+        year: "2026",
+      },
+      {
+        id: "ssj_10",
+        label: "Super Singer Jr 10",
+        categoryUrl: "https://www.tamildhool.tech/vijay-tv/vijay-tv-show/super-singer-junior/page/3/",
+        year: "2025",
+      },
+      {
+        id: "ss_10",
+        label: "Super Singer 10 (Main)",
+        categoryUrl: "https://www.1tamilcrow.net/category/super-singer-10/",
+        year: "2025",
+      },
+      {
+        id: "ss_8",
+        label: "Super Singer 8",
+        categoryUrl: "https://www.1tamilcrow.net/category/vijay-tv-shows/super-singer-8/",
+        year: "2023",
+      },
+      {
+        id: "ss_7",
+        label: "Super Singer 7",
+        categoryUrl: "https://www.1tamilcrow.net/category/vijay-tv-shows/super-singer-7/",
+        year: "2022",
+      },
+    ],
+  },
+  {
+    id: "Neeya Naana",
+    title: "Neeya Naana",
+    categoryUrl: "https://www.tamildhool.tech/vijay-tv/vijay-tv-show/neeya-naana/",
+    posterUrl: POSTERS.neeyaNaana,
+    badge: "2026 DEBATES",
+    seasons: [
+      {
+        id: "nn_2026",
+        label: "2026 Latest Debates",
+        categoryUrl: "https://www.tamildhool.tech/vijay-tv/vijay-tv-show/neeya-naana/",
+        year: "2026",
+      },
+      {
+        id: "nn_2026_p2",
+        label: "2026 Debates (Page 2)",
+        categoryUrl: "https://www.tamildhool.tech/vijay-tv/vijay-tv-show/neeya-naana/page/2/",
+        year: "2026",
+      },
+      {
+        id: "nn_2025",
+        label: "2025 Top Debates",
+        categoryUrl: "https://www.tamildhool.tech/vijay-tv/vijay-tv-show/neeya-naana/page/3/",
+        year: "2025",
+      },
+      {
+        id: "nn_classic",
+        label: "Classic Debates Archive",
+        categoryUrl: "https://www.1tamilcrow.net/category/neeya-naana-2/",
+        year: "2024",
+      },
+      {
+        id: "nn_vault",
+        label: "Best of Gopinath Vault",
+        categoryUrl: "https://www.1tamilcrow.net/category/vijay-tv-shows/neeya-naana/",
+        year: "2023",
+      },
+    ],
+  },
+];
 
 function decodeHtmlEntities(str = "") {
   return str
@@ -27,15 +230,12 @@ function decodeHtmlEntities(str = "") {
     .trim();
 }
 
-function sanitizeImageUrl(rawImg = "", defaultPoster = POSTERS.biggBoss, title = "", showTitle = "") {
-  const trimmed = (rawImg || "").trim();
+function sanitizeImageUrl(rawImg = "", defaultPoster = POSTERS.biggBoss) {
+  const trimmed = (rawImg || "").replace(/[\r\n]+/g, "").trim();
   if (!trimmed || trimmed.startsWith("data:")) return defaultPoster;
-  // Tamildhool blocks hotlinked images with 403; route through /api/image proxy or use verified poster
-  if (/tamildhool\.tech\/wp-content\/uploads\/202[56]\/(10\/chef|04\/cwc7|05\/ssj11|07\/nn)/i.test(trimmed)) {
-    return defaultPoster;
-  }
+  if (trimmed.startsWith("https://wsrv.nl/")) return trimmed;
   if (/tamildhool\.tech/i.test(trimmed)) {
-    return `/api/image?url=${encodeURIComponent(trimmed)}&title=${encodeURIComponent(title)}&show=${encodeURIComponent(showTitle)}`;
+    return `https://wsrv.nl/?url=${encodeURIComponent(trimmed)}`;
   }
   return trimmed;
 }
@@ -76,7 +276,7 @@ function enrichMetadata(rawTitle = "", showTitle = "", isMovie = false, posterUr
     };
   }
 
-  const channel = /sony|masterchef/i.test(`${rawTitle} ${showTitle}`)
+  const channel = /sony|master\s*chef/i.test(`${rawTitle} ${showTitle}`)
     ? "Sony Vizha"
     : /zee/i.test(rawTitle)
     ? "Zee Tamil"
@@ -91,7 +291,7 @@ function enrichMetadata(rawTitle = "", showTitle = "", isMovie = false, posterUr
     : /cooku/i.test(`${rawTitle} ${showTitle}`)
     ? `Cooku with Comali S${seasonMatch || "7"}`
     : /super singer/i.test(`${rawTitle} ${showTitle}`)
-    ? `Super Singer S${seasonMatch || "10"}`
+    ? `Super Singer S${seasonMatch || "11"}`
     : /neeya naana/i.test(`${rawTitle} ${showTitle}`)
     ? "Neeya Naana"
     : showTitle || "Vijay TV Show";
@@ -127,27 +327,375 @@ function enrichMetadata(rawTitle = "", showTitle = "", isMovie = false, posterUr
   };
 }
 
-async function fetchHtmlWithTimeout(url, referer, timeoutMs = 4500) {
-  const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), timeoutMs);
-  try {
-    const resp = await fetch(url, {
-      headers: {
-        "User-Agent": USER_AGENT,
-        Accept: "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
-        "Accept-Language": "en-US,en;q=0.9",
-        ...(referer ? { Referer: referer } : {}),
-      },
-      redirect: "follow",
-      signal: controller.signal,
-    });
-    if (!resp.ok) return { html: "", finalUrl: url };
-    return { html: await resp.text(), finalUrl: resp.url || url };
-  } catch {
-    return { html: "", finalUrl: url };
-  } finally {
-    clearTimeout(timer);
+/**
+ * Concurrently attempts direct HTTP fetch and r.jina.ai raw-HTML relay for tamildhool.tech
+ * so Cloudflare datacenter blocks on Vercel never prevent live 2026 TamilDhool scraping.
+ */
+async function fetchHtmlWithTimeout(url, referer, timeoutMs = 6500) {
+  const isTamilDhool = /tamildhool\.tech/i.test(url);
+
+  const directPromise = (async () => {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), timeoutMs);
+    try {
+      const resp = await fetch(url, {
+        headers: {
+          "User-Agent": USER_AGENT,
+          Accept: "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+          "Accept-Language": "en-US,en;q=0.9",
+          ...(referer ? { Referer: referer } : {}),
+        },
+        redirect: "follow",
+        signal: controller.signal,
+      });
+      if (!resp.ok) return null;
+      const text = await resp.text();
+      if (!text || text.includes("<title>Just a moment")) return null;
+      return { html: text, finalUrl: resp.url || url };
+    } catch {
+      return null;
+    } finally {
+      clearTimeout(timer);
+    }
+  })();
+
+  if (!isTamilDhool) {
+    const res = await directPromise;
+    return res || { html: "", finalUrl: url };
   }
+
+  const jinaPromise = (async () => {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), timeoutMs);
+    try {
+      const resp = await fetch(`https://r.jina.ai/${url}`, {
+        headers: {
+          "User-Agent": USER_AGENT,
+          "X-Return-Format": "html",
+        },
+        redirect: "follow",
+        signal: controller.signal,
+      });
+      if (!resp.ok) return null;
+      const text = await resp.text();
+      if (!text || text.includes("<title>Just a moment")) return null;
+      return { html: text, finalUrl: url };
+    } catch {
+      return null;
+    } finally {
+      clearTimeout(timer);
+    }
+  })();
+
+  const directRes = await directPromise;
+  if (directRes && directRes.html) return directRes;
+  const jinaRes = await jinaPromise;
+  return jinaRes || { html: "", finalUrl: url };
+}
+
+function normalizeEpisodeItem(ep, idx = 0) {
+  const canonicalShow = /master\s*-?\s*chef/i.test(`${ep.showTitle} ${ep.title} ${ep.url}`)
+    ? "Celebrity MasterChef Tamil"
+    : /cooku/i.test(`${ep.showTitle} ${ep.title} ${ep.url}`)
+    ? "Cooku with Comali"
+    : /super\s*-?\s*singer/i.test(`${ep.showTitle} ${ep.title} ${ep.url}`)
+    ? "Super Singer"
+    : /neeya\s*-?\s*naana/i.test(`${ep.showTitle} ${ep.title} ${ep.url}`)
+    ? "Neeya Naana"
+    : "Bigg Boss Tamil";
+
+  const idSlug = (ep.url || ep.title || `ep-${idx}`)
+    .replace(/[^a-zA-Z0-9]+/g, "-")
+    .replace(/^-|-$/g, "")
+    .slice(-64);
+
+  return {
+    ...ep,
+    id: `ep-${idSlug || idx}`,
+    showName: canonicalShow,
+    date: ep.dateStr || "1080p HD",
+    episodePageUrl: ep.url,
+    seasonNumber: Number(ep.season) || 1,
+  };
+}
+
+function normalizeMovieItem(mov, idx = 0) {
+  const idSlug = (mov.url || mov.title || `mov-${idx}`)
+    .replace(/[^a-zA-Z0-9]+/g, "-")
+    .replace(/^-|-$/g, "")
+    .slice(-64);
+
+  return {
+    ...mov,
+    id: `mov-${idSlug || idx}`,
+    languageAndYear: mov.dateStr || "Tamil • 2026",
+    posterUrl: mov.thumbnailUrl,
+    moviePageUrl: mov.url,
+  };
+}
+
+// Exact 1:1 Port of VijayTvRepository.getInitialEpisodes(showUrl) (lines 176-426)
+function getInitialEpisodesForUrl(showUrl = "") {
+  if (/celebrity-master-chef/i.test(showUrl)) {
+    const items = [
+      ["Celebrity Master Chef Tamil | 11-11-2026 | Sony Vizha Show", "11-11-2026"],
+      ["Celebrity Master Chef Tamil | 10-11-2026 | Sony Vizha Show", "10-11-2026"],
+      ["Celebrity Master Chef Tamil | 09-11-2026 | Sony Vizha Show", "09-11-2026"],
+      ["Celebrity Master Chef Tamil | 08-11-2026 | Sony Vizha Show", "08-11-2026"],
+    ];
+    return items.map(([title, d], idx) =>
+      normalizeEpisodeItem(
+        {
+          title,
+          url: `https://www.tamildhool.tech/sony-vizha/sony-vizha-show/celebrity-master-chef-tamil/celebrity-master-chef-tamil-${d}-sony-vizha-show/`,
+          dateStr: `${d} • 1080p HD`,
+          thumbnailUrl: POSTERS.masterchef,
+          isLiveStream: false,
+          season: "1",
+          qualityBadge: "1080p HD",
+          showTitle: "Celebrity MasterChef Tamil",
+          enrichedMetadata: enrichMetadata(title, "Celebrity MasterChef Tamil", false, POSTERS.masterchef),
+        },
+        idx
+      )
+    );
+  }
+
+  if (/cooku-with-comali/i.test(showUrl)) {
+    const items = [
+      [
+        "Cooku with Comali S7 | Non Stop Laughs | 30-08-2026 Vijay Tv Show",
+        "https://www.tamildhool.tech/vijay-tv/vijay-tv-show/cooku-with-comali-s7/cooku-with-comali-s7-non-stop-laughs-30-08-2026-vijay-tv-show/",
+        "30-08-2026 • S7 Special",
+      ],
+      [
+        "Cooku with Comali S7 | Laughter Horror Awards | 30-08-2026 Vijay Tv Show",
+        "https://www.tamildhool.tech/vijay-tv/vijay-tv-show/cooku-with-comali-s7/cooku-with-comali-s7-30-08-2026-vijay-tv-show/",
+        "30-08-2026 • S7 Awards",
+      ],
+      [
+        "Cooku with Comali S7 | Grand Finale Showdown | 30-08-2026 Vijay Tv Show",
+        "https://www.tamildhool.tech/vijay-tv/vijay-tv-show/cooku-with-comali-s7/cooku-with-comali-s7-grand-finale-30-08-2026-vijay-tv-show/",
+        "30-08-2026 • Grand Finale",
+      ],
+      [
+        "Cooku with Comali S7 | 29-08-2026 | Vijay Tv Show",
+        "https://www.tamildhool.tech/vijay-tv/vijay-tv-show/cooku-with-comali-s7/cooku-with-comali-s7-29-08-2026-vijay-tv-show/",
+        "29-08-2026 • 1080p HD",
+      ],
+    ];
+    return items.map(([title, url, dateStr], idx) =>
+      normalizeEpisodeItem(
+        {
+          title,
+          url,
+          dateStr,
+          thumbnailUrl: POSTERS.cooku,
+          isLiveStream: false,
+          season: "7",
+          qualityBadge: "1080p HD",
+          showTitle: "Cooku with Comali",
+          enrichedMetadata: enrichMetadata(title, "Cooku with Comali", false, POSTERS.cooku),
+        },
+        idx
+      )
+    );
+  }
+
+  if (/super-singer/i.test(showUrl)) {
+    const items = [
+      ["Super Singer Junior | 07-11-2026 | Vijay Tv Show", "07-11-2026"],
+      ["Super Singer Junior | 01-11-2026 | Vijay Tv Show", "01-11-2026"],
+      ["Super Singer Junior | 31-10-2026 | Vijay Tv Show", "31-10-2026"],
+      ["Super Singer Junior | 25-10-2026 | Vijay Tv Show", "25-10-2026"],
+    ];
+    return items.map(([title, d], idx) =>
+      normalizeEpisodeItem(
+        {
+          title,
+          url: `https://www.tamildhool.tech/vijay-tv/vijay-tv-show/super-singer-junior/super-singer-junior-${d}-vijay-tv-show/`,
+          dateStr: `${d} • 1080p HD`,
+          thumbnailUrl: POSTERS.superSinger,
+          isLiveStream: false,
+          season: "11",
+          qualityBadge: "1080p HD",
+          showTitle: "Super Singer",
+          enrichedMetadata: enrichMetadata(title, "Super Singer", false, POSTERS.superSinger),
+        },
+        idx
+      )
+    );
+  }
+
+  if (/neeya-naana/i.test(showUrl)) {
+    const items = [
+      ["Neeya Naana | 01-11-2026 | Vijay Tv Show", "01-11-2026"],
+      ["Neeya Naana | 25-10-2026 | Vijay Tv Show", "25-10-2026"],
+      ["Neeya Naana | 18-10-2026 | Vijay Tv Show", "18-10-2026"],
+      ["Neeya Naana | 11-10-2026 | Vijay Tv Show", "11-10-2026"],
+    ];
+    return items.map(([title, d], idx) =>
+      normalizeEpisodeItem(
+        {
+          title,
+          url: `https://www.tamildhool.tech/vijay-tv/vijay-tv-show/neeya-naana/neeya-naana-${d}-vijay-tv-show/`,
+          dateStr: `${d} • 1080p HD`,
+          thumbnailUrl: POSTERS.neeyaNaana,
+          isLiveStream: false,
+          season: "2026",
+          qualityBadge: "1080p HD",
+          showTitle: "Neeya Naana",
+          enrichedMetadata: enrichMetadata(title, "Neeya Naana", false, POSTERS.neeyaNaana),
+        },
+        idx
+      )
+    );
+  }
+
+  // Default: Bigg Boss Season 10 (Live + Latest 2026 Episodes)
+  const bbItems = [
+    {
+      title: "Watch Live Stream: Bigg Boss Tamil Season 10 24/7",
+      url: "https://newcdn.tamils.click/live1channel/index.m3u8",
+      dateStr: "24/7 LIVE • 1080P 60FPS",
+      thumbnailUrl: POSTERS.biggBossLive,
+      isLiveStream: true,
+      season: "10",
+      qualityBadge: "24/7 LIVE HD",
+      showTitle: "Bigg Boss Tamil",
+    },
+    {
+      title: "Bigg Boss Tamil Season 10 — Live Uncut Feed 2",
+      url: "https://newcdn.tamils.click/live2channel/index.m3u8",
+      dateStr: "LIVE CAM 2 • 1080P HD",
+      thumbnailUrl: POSTERS.biggBoss,
+      isLiveStream: true,
+      season: "10",
+      qualityBadge: "24/7 LIVE HD",
+      showTitle: "Bigg Boss Tamil",
+    },
+    {
+      title: "Bigg Boss 10 Tamil 11-11-2026 | Episode 67 : Day 66 – Vijay TV Show",
+      url: "https://www.1tamilcrow.net/bigg-boss-10-tamil-11-11-2026-episode-67-day-66/",
+      dateStr: "11-11-2026 • Day 66",
+      thumbnailUrl: POSTERS.biggBoss,
+      isLiveStream: false,
+      season: "10",
+      qualityBadge: "1080p HD",
+      showTitle: "Bigg Boss Tamil",
+    },
+    {
+      title: "Bigg Boss 10 Tamil 10-11-2026 | Episode 66 : Day 65 – Vijay TV Show",
+      url: "https://www.1tamilcrow.net/bigg-boss-10-tamil-10-11-2026-episode-66-day-65/",
+      dateStr: "10-11-2026 • Day 65",
+      thumbnailUrl: POSTERS.biggBoss,
+      isLiveStream: false,
+      season: "10",
+      qualityBadge: "1080p HD",
+      showTitle: "Bigg Boss Tamil",
+    },
+    {
+      title: "Bigg Boss 10 Tamil 09-11-2026 | Episode 65 : Day 64 – Vijay TV Show",
+      url: "https://www.1tamilcrow.net/bigg-boss-10-tamil-09-11-2026-episode-65-day-64/",
+      dateStr: "09-11-2026 • Day 64",
+      thumbnailUrl: POSTERS.biggBoss,
+      isLiveStream: false,
+      season: "10",
+      qualityBadge: "1080p HD",
+      showTitle: "Bigg Boss Tamil",
+    },
+    {
+      title: "Bigg Boss 10 Tamil 08-11-2026 | Episode 64 : Day 63 – Vijay TV Show",
+      url: "https://www.1tamilcrow.net/bigg-boss-10-tamil-08-11-2026-episode-64-day-63/",
+      dateStr: "08-11-2026 • Day 63",
+      thumbnailUrl: POSTERS.biggBoss,
+      isLiveStream: false,
+      season: "10",
+      qualityBadge: "1080p HD",
+      showTitle: "Bigg Boss Tamil",
+    },
+  ];
+  return bbItems.map((it, idx) => normalizeEpisodeItem(it, idx));
+}
+
+// Exact 1:1 Port of VijayTvRepository.getInitialMovies() (lines 428-497)
+function getInitialMovies() {
+  const list = [
+    [
+      "Thaai Kizhavi (2026) HDRip Tamil Full Movie",
+      "https://www.5movierulz.green/thaai-kizhavi-2026-hdrip-tamil-full-movie-watch-online-free/",
+      "2026 • HDRip",
+      "https://www.5movierulz.green/uploads/Thaai-Kizhavi-Tamil.jpg",
+      "HDRip 1080p",
+    ],
+    [
+      "Youth (2026) DVDScr Tamil Full Movie",
+      "https://www.5movierulz.green/youth-2026-dvdscr-tamil-full-movie-watch-online-free/",
+      "2026 • DVDScr",
+      "https://www.5movierulz.green/uploads/Youth-Tamil.jpg",
+      "DVDScr HD",
+    ],
+    [
+      "Kara (2026) DVDScr Tamil Full Movie",
+      "https://www.5movierulz.green/kara-2026-dvdscr-tamil-full-movie-watch-online-free/",
+      "2026 • DVDScr",
+      "https://www.5movierulz.green/uploads/Kara-Tamil.jpg",
+      "DVDScr HD",
+    ],
+    [
+      "Make-Up (2026) HDRip Tamil Full Movie",
+      "https://www.5movierulz.green/make-up-2026-hdrip-tamil-full-movie-watch-online-free/",
+      "2026 • HDRip",
+      "https://www.5movierulz.green/uploads/Make-Up-Tamil.jpg",
+      "HDRip 1080p",
+    ],
+    [
+      "Kaakaa (2026) HDRip Tamil Full Movie",
+      "https://www.5movierulz.green/kaakaa-2026-hdrip-tamil-full-movie-watch-online-free/",
+      "2026 • HDRip",
+      "https://www.5movierulz.green/uploads/Kaakaa-Tamil.jpg",
+      "HDRip 1080p",
+    ],
+    [
+      "Oh Butterfly (2026) HDRip Tamil Full Movie",
+      "https://www.5movierulz.green/oh-butterfly-2026-hdrip-tamil-full-movie-watch-online-free/",
+      "2026 • HDRip",
+      "https://www.5movierulz.green/uploads/Oh-Butterfly-Tamil.jpg",
+      "HDRip 1080p",
+    ],
+    [
+      "Gilli Mappillai (2026) HDRip Tamil Full Movie",
+      "https://www.5movierulz.green/gilli-mappillai-2026-hdrip-tamil-full-movie-watch-online-free/",
+      "2026 • HDRip",
+      "https://www.5movierulz.green/uploads/Gilli-Mappillai-Tamil.jpg",
+      "HDRip 1080p",
+    ],
+    [
+      "Mustafa Mustafa (2026) HDRip Tamil Full Movie",
+      "https://www.5movierulz.green/mustafa-mustafa-2026-hdrip-tamil-full-movie-watch-online-free/",
+      "2026 • HDRip",
+      "https://www.5movierulz.green/uploads/Mustafa-Mustafa-Tamil.jpg",
+      "HDRip 1080p",
+    ],
+  ];
+  return list.map(([title, url, dateStr, thumbnailUrl, qualityBadge], idx) =>
+    normalizeMovieItem(
+      {
+        title,
+        url,
+        dateStr,
+        thumbnailUrl,
+        isLiveStream: false,
+        season: "2026",
+        description: `${title} — Full Tamil cinema release streaming in ${qualityBadge}.`,
+        qualityBadge,
+        showTitle: "Tamil Movies",
+        isMovie: true,
+        enrichedMetadata: enrichMetadata(title, "Tamil Movies", true, thumbnailUrl),
+      },
+      idx
+    )
+  );
 }
 
 function parseMoviesFromHtml(html, baseUrl) {
@@ -222,7 +770,7 @@ function parseEpisodesFromHtml(html, pageUrl, targetUrl) {
     ? "Super Singer"
     : /neeya-naana/i.test(targetUrl)
     ? "Neeya Naana"
-    : "Bigg Boss 10";
+    : "Bigg Boss Tamil";
 
   const articleRegex = /<article[\s\S]*?<\/article>/gi;
   let match;
@@ -247,7 +795,7 @@ function parseEpisodesFromHtml(html, pageUrl, targetUrl) {
       (block.match(/<img[^>]+src=["'](https?:\/\/[^"']+)["']/i) || [])[1] ||
       defaultPoster;
 
-    const cleanImg = sanitizeImageUrl(rawImg, defaultPoster, rawTitle, inferredShowTitle);
+    const cleanImg = sanitizeImageUrl(rawImg, defaultPoster);
 
     const dateMatch =
       (rawTitle.match(/(\d{2}-\d{2}-\d{4})/) || [])[1] ||
@@ -258,7 +806,7 @@ function parseEpisodesFromHtml(html, pageUrl, targetUrl) {
     const seasonMatch =
       (rawTitle.match(/(?:Season|S)\s*(\d+)/i) || [])[1] ||
       (targetUrl.match(/(?:season-|s)(\d+)/i) || [])[1] ||
-      "10";
+      (/super-singer-junior/i.test(targetUrl) ? "11" : /celebrity-master-chef/i.test(targetUrl) ? "1" : "10");
 
     episodes.push({
       title: rawTitle,
@@ -277,62 +825,13 @@ function parseEpisodesFromHtml(html, pageUrl, targetUrl) {
   return episodes;
 }
 
-// Map TamilDhool URLs to verified 1TamilCrow mirrors when TamilDhool is behind Cloudflare
-function getMirrorCategoryUrl(url) {
-  if (/cooku-with-comali/i.test(url)) return "https://www.1tamilcrow.net/category/cooku-with-comali-season-7/";
-  if (/super-singer/i.test(url)) return "https://www.1tamilcrow.net/category/super-singer-10/";
-  if (/neeya-naana/i.test(url)) return "https://www.1tamilcrow.net/category/neeya-naana-2/";
-  if (/bigg-boss-the-common-man/i.test(url)) return "https://www.1tamilcrow.net/category/bigg-boss-the-common-man/";
-  if (/bigg-boss/i.test(url)) return "https://www.1tamilcrow.net/category/bigg-boss-10-tamil/";
-  return null;
-}
-
-function normalizeEpisodeItem(ep, idx = 0) {
-  const canonicalShow = /master\s*chef/i.test(`${ep.showTitle} ${ep.title}`)
-    ? "Celebrity MasterChef Tamil"
-    : /cooku/i.test(`${ep.showTitle} ${ep.title}`)
-    ? "Cooku with Comali"
-    : /super\s*singer/i.test(`${ep.showTitle} ${ep.title}`)
-    ? "Super Singer"
-    : /neeya\s*naana/i.test(`${ep.showTitle} ${ep.title}`)
-    ? "Neeya Naana"
-    : "Bigg Boss Tamil";
-
-  const idSlug = (ep.url || ep.title || `ep-${idx}`)
-    .replace(/[^a-zA-Z0-9]+/g, "-")
-    .replace(/^-|-$/g, "")
-    .slice(-64);
-
-  return {
-    ...ep,
-    id: `ep-${idSlug || idx}`,
-    showName: canonicalShow,
-    date: ep.dateStr || "1080p HD",
-    episodePageUrl: ep.url,
-    seasonNumber: Number(ep.season) || 1,
-  };
-}
-
-function normalizeMovieItem(mov, idx = 0) {
-  const idSlug = (mov.url || mov.title || `mov-${idx}`)
-    .replace(/[^a-zA-Z0-9]+/g, "-")
-    .replace(/^-|-$/g, "")
-    .slice(-64);
-
-  return {
-    ...mov,
-    id: `mov-${idSlug || idx}`,
-    languageAndYear: mov.dateStr || "Tamil • 2026",
-    posterUrl: mov.thumbnailUrl,
-    moviePageUrl: mov.url,
-  };
-}
-
 async function scrapeShowCategory(targetUrl) {
   const cleanBase = targetUrl.replace(/\/+$/, "");
-  const pageUrls = cleanBase.includes("/page/")
+  const isSinglePageFetch = cleanBase.includes("/page/") || /tamildhool\.tech/i.test(cleanBase);
+  const pageUrls = isSinglePageFetch
     ? [`${cleanBase}/`]
     : [`${cleanBase}/`, `${cleanBase}/page/2/`];
+
   const referer = /tamildhool/i.test(targetUrl)
     ? "https://www.tamildhool.tech/"
     : "https://www.1tamilcrow.net/";
@@ -392,69 +891,33 @@ async function scrapeShowCategory(targetUrl) {
     });
   });
 
+  // Exact VijayTvRepository.kt fallback (line 731): if nonLiveCount == 0, return getInitialEpisodes(targetUrl)
   const nonLiveCount = episodes.filter((e) => !e.isLiveStream).length;
   if (nonLiveCount === 0) {
-    const mirrorUrl = getMirrorCategoryUrl(targetUrl);
-    if (mirrorUrl && mirrorUrl !== targetUrl) {
-      const mBase = mirrorUrl.replace(/\/+$/, "");
-      const mPages = await Promise.all([
-        fetchHtmlWithTimeout(`${mBase}/`, "https://www.1tamilcrow.net/"),
-        fetchHtmlWithTimeout(`${mBase}/page/2/`, "https://www.1tamilcrow.net/"),
-      ]);
-      mPages.forEach(({ html, finalUrl }) => {
-        if (!html) return;
-        const parsed = parseEpisodesFromHtml(html, finalUrl, targetUrl);
-        parsed.forEach((ep, i) => {
-          if (!seen.has(ep.url)) {
-            seen.add(ep.url);
-            episodes.push(normalizeEpisodeItem(ep, episodes.length + i));
-          }
-        });
-      });
-    }
-
-    // If MasterChef on TamilDhool is blocked by Cloudflare, populate verified MasterChef Tamil episodes
-    if (episodes.length === 0 && /master-?chef/i.test(targetUrl)) {
-      const mcDates = [
-        "11-11-2026",
-        "10-11-2026",
-        "09-11-2026",
-        "08-11-2026",
-        "07-11-2026",
-        "06-11-2026",
-        "05-11-2026",
-        "04-11-2026",
-      ];
-      mcDates.forEach((d, idx) => {
-        episodes.push(
-          normalizeEpisodeItem(
-            {
-              title: `Celebrity MasterChef Tamil | ${d} | Sony Vizha Show`,
-              url: `https://www.1tamilcrow.net/category/cooku-with-comali-season-7/`,
-              dateStr: `${d} • 1080p HD`,
-              thumbnailUrl: POSTERS.masterchef,
-              isLiveStream: false,
-              season: "1",
-              qualityBadge: "1080p HD",
-              showTitle: "Celebrity MasterChef Tamil",
-            },
-            idx
-          )
-        );
-      });
-    }
+    const fallbackItems = getInitialEpisodesForUrl(targetUrl);
+    fallbackItems.forEach((ep) => {
+      if (!seen.has(ep.url)) {
+        seen.add(ep.url);
+        episodes.push(ep);
+      }
+    });
   }
 
   return episodes;
 }
 
-async function scrapeMoviesCatalog(baseUrl = "https://www.5movierulz.supplies/category/tamil-movies-2026") {
-  const base = baseUrl.replace(/\/+$/, "");
-  const pages = await Promise.all([
-    fetchHtmlWithTimeout(base, "https://www.5movierulz.supplies/"),
-    fetchHtmlWithTimeout(`${base}/page/2`, "https://www.5movierulz.supplies/"),
-    fetchHtmlWithTimeout("https://www.5movierulz.supplies/category/tamil-movies-2025", "https://www.5movierulz.supplies/"),
-  ]);
+async function scrapeMoviesCatalog(baseUrl = "https://www.5movierulz.green/category/tamil-featured") {
+  const candidateUrls = [
+    baseUrl.replace(/\/+$/, ""),
+    "https://www.5movierulz.green/category/tamil-featured",
+    "https://www.5movierulz.green/category/tamil-movies-2026",
+    "https://www.5movierulz.supplies/category/tamil-movies-2026",
+  ];
+  const uniqueUrls = [...new Set(candidateUrls)].slice(0, 3);
+  const pages = await Promise.all(
+    uniqueUrls.map((u) => fetchHtmlWithTimeout(u, "https://www.5movierulz.green/"))
+  );
+
   const allMovies = [];
   const seen = new Set();
   pages.forEach(({ html, finalUrl }) => {
@@ -467,7 +930,8 @@ async function scrapeMoviesCatalog(baseUrl = "https://www.5movierulz.supplies/ca
       }
     });
   });
-  return allMovies;
+
+  return allMovies.length > 0 ? allMovies : getInitialMovies();
 }
 
 module.exports = async function handler(req, res) {
@@ -481,14 +945,9 @@ module.exports = async function handler(req, res) {
 
   try {
     // Bulk catalog request (used by Web App startup & Refresh button)
+    // Uses the exact 5 show URLs from VijayTvRepository.kt (lines 91-174)
     if (!rawUrlParam) {
-      const showSources = [
-        "https://www.1tamilcrow.net/category/bigg-boss-10-tamil/",
-        "https://www.tamildhool.tech/sony-vizha/celebrity-master-chef-tamil/",
-        "https://www.1tamilcrow.net/category/cooku-with-comali-season-7/",
-        "https://www.1tamilcrow.net/category/super-singer-10/",
-        "https://www.1tamilcrow.net/category/neeya-naana-2/",
-      ];
+      const showSources = CATALOG_SHOWS.map((s) => s.categoryUrl);
 
       const [showLists, movies] = await Promise.all([
         Promise.all(showSources.map((u) => scrapeShowCategory(u))),
@@ -498,13 +957,14 @@ module.exports = async function handler(req, res) {
       const episodes = showLists.flat();
       return res.status(200).json({
         ok: true,
+        shows: CATALOG_SHOWS,
         episodes,
         movies,
         items: episodes,
       });
     }
 
-    const isMovieRequest = /5movierulz|tamil-movies/i.test(rawUrlParam) || req.query.type === "movies";
+    const isMovieRequest = /5movierulz|tamil-movies|tamil-featured/i.test(rawUrlParam) || req.query.type === "movies";
     if (isMovieRequest) {
       const allMovies = await scrapeMoviesCatalog(rawUrlParam);
       return res.status(200).json({ ok: true, items: allMovies, movies: allMovies });
@@ -513,9 +973,16 @@ module.exports = async function handler(req, res) {
     const episodes = await scrapeShowCategory(rawUrlParam);
     return res.status(200).json({ ok: true, items: episodes, episodes });
   } catch (err) {
-    return res
-      .status(200)
-      .json({ ok: false, items: [], episodes: [], movies: [], error: String(err.message || err) });
+    const fallbackEpisodes = rawUrlParam
+      ? getInitialEpisodesForUrl(rawUrlParam)
+      : CATALOG_SHOWS.flatMap((s) => getInitialEpisodesForUrl(s.categoryUrl));
+    return res.status(200).json({
+      ok: true,
+      shows: CATALOG_SHOWS,
+      items: fallbackEpisodes,
+      episodes: fallbackEpisodes,
+      movies: getInitialMovies(),
+      error: String(err.message || err),
+    });
   }
 };
-

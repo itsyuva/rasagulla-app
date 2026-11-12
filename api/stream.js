@@ -9,27 +9,68 @@ const VERIFIED_HLS_1080P_A = "https://test-streams.mux.dev/x36xhzz/x36xhzz.m3u8"
 const VERIFIED_HLS_1080P_B =
   "https://devstreaming-cdn.apple.com/videos/streaming/examples/img_bipbop_adv_example_ts/master.m3u8";
 
-async function fetchHtml(url, referer, timeoutMs = 4000) {
-  const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), timeoutMs);
-  try {
-    const resp = await fetch(url, {
-      headers: {
-        "User-Agent": USER_AGENT,
-        Accept: "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
-        "Accept-Language": "en-US,en;q=0.9",
-        ...(referer ? { Referer: referer } : {}),
-      },
-      redirect: "follow",
-      signal: controller.signal,
-    });
-    if (!resp.ok) return "";
-    return await resp.text();
-  } catch {
-    return "";
-  } finally {
-    clearTimeout(timer);
+/**
+ * Concurrently attempts direct HTTP fetch and r.jina.ai raw-HTML relay for tamildhool.tech
+ * so Cloudflare datacenter blocks on Vercel never prevent live stream extraction.
+ */
+async function fetchHtml(url, referer, timeoutMs = 6000) {
+  const isTamilDhool = /tamildhool\.tech/i.test(url);
+
+  const directPromise = (async () => {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), timeoutMs);
+    try {
+      const resp = await fetch(url, {
+        headers: {
+          "User-Agent": USER_AGENT,
+          Accept: "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+          "Accept-Language": "en-US,en;q=0.9",
+          ...(referer ? { Referer: referer } : {}),
+        },
+        redirect: "follow",
+        signal: controller.signal,
+      });
+      if (!resp.ok) return "";
+      const text = await resp.text();
+      if (!text || text.includes("<title>Just a moment")) return "";
+      return text;
+    } catch {
+      return "";
+    } finally {
+      clearTimeout(timer);
+    }
+  })();
+
+  if (!isTamilDhool) {
+    return await directPromise;
   }
+
+  const jinaPromise = (async () => {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), timeoutMs);
+    try {
+      const resp = await fetch(`https://r.jina.ai/${url}`, {
+        headers: {
+          "User-Agent": USER_AGENT,
+          "X-Return-Format": "html",
+        },
+        redirect: "follow",
+        signal: controller.signal,
+      });
+      if (!resp.ok) return "";
+      const text = await resp.text();
+      if (!text || text.includes("<title>Just a moment")) return "";
+      return text;
+    } catch {
+      return "";
+    } finally {
+      clearTimeout(timer);
+    }
+  })();
+
+  const directHtml = await directPromise;
+  if (directHtml) return directHtml;
+  return await jinaPromise;
 }
 
 function unpackPackerScript(html) {
@@ -64,25 +105,8 @@ function unpackPackerScript(html) {
   return m3u8Match ? m3u8Match[0] : null;
 }
 
-function stripAdsAndExtractStream(html = "") {
-  if (!html) return null;
-  const sanitized = html.replace(
-    /<script[^>]*?(?:popads|doubleclick|googlesyndication|adsterra|exoclick|propeller)[^>]*?>[\s\S]*?<\/script>/gi,
-    ""
-  );
-  const m3u8 = sanitized.match(/https?:\/\/[^\s"'<>\\]+\.m3u8(?:\?[^\s"'<>\\]*)?/i);
-  if (m3u8) return m3u8[0].replace(/\\\//g, "/");
-
-  const vk = sanitized.match(/"hls"\s*:\s*"(https?:\\\/\\\/[^"]+)"/i);
-  if (vk) return vk[1].replace(/\\\//g, "/");
-
-  const mp4 = sanitized.match(/https?:\/\/[^\s"'<>\\]+\.mp4(?:\?[^\s"'<>\\]*)?/i);
-  if (mp4) return mp4[0].replace(/\\\//g, "/");
-  return null;
-}
-
 async function extractVimeoStreams(vimeoUrl, partNumber = null) {
-  const html = await fetchHtml(vimeoUrl, "https://www.1tamilcrow.net/", 3400);
+  const html = await fetchHtml(vimeoUrl, "https://www.1tamilcrow.net/", 3600);
   if (!html) return [];
   const results = [];
   const avcRegex = /"avc_url"\s*:\s*"(https:\/\/[^"]+playlist\.m3u8[^"]*)"/g;
@@ -192,7 +216,7 @@ function attachMirrorBadgesAndProxy(sources) {
       (/b-cdn\.net|tamildhool/i.test(src.url)
         ? "TamilDhool"
         : /vibrantpulselab|vcdnx/i.test(src.url)
-        ? "Streamlare HD"
+        ? "JW Studio HD"
         : /vimeo|ok\.ru/i.test(src.url)
         ? "1TamilCrow"
         : "Direct CDN");
@@ -295,16 +319,22 @@ module.exports = async function handler(req, res) {
   const defaultReferer = /tamildhool\.tech/i.test(episodeUrl)
     ? "https://www.tamildhool.tech/"
     : /5movierulz/i.test(episodeUrl)
-    ? "https://www.5movierulz.supplies/"
+    ? "https://www.5movierulz.green/"
     : "https://www.1tamilcrow.net/";
 
-  let html = await fetchHtml(episodeUrl, defaultReferer, 4200);
+  let html = await fetchHtml(episodeUrl, defaultReferer, 6000);
 
-  // If the URL is a category listing page, automatically follow the latest episode article link
-  if (html && (/\/category\//i.test(episodeUrl) || !/<iframe/i.test(html))) {
+  // If the URL is a category listing page (e.g. /category/... or show root URL), follow the first article link
+  const looksLikeCategoryListing =
+    /\/category\//i.test(episodeUrl) ||
+    /\/(?:celebrity-master-chef-tamil|super-singer-junior|neeya-naana|cooku-with-comali-s7|bigg-boss-tamil-season-10)\/?$/i.test(
+      episodeUrl
+    );
+
+  if (html && looksLikeCategoryListing) {
     const firstPostMatch = html.match(/<article[\s\S]*?<h[23][^>]*>\s*<a[^>]+href=["'](https?:\/\/[^"']+)["']/i);
     if (firstPostMatch && firstPostMatch[1] && firstPostMatch[1] !== episodeUrl) {
-      const postHtml = await fetchHtml(firstPostMatch[1].trim(), defaultReferer, 3800);
+      const postHtml = await fetchHtml(firstPostMatch[1].trim(), defaultReferer, 5500);
       if (postHtml) html = postHtml;
     }
   }
@@ -317,15 +347,39 @@ module.exports = async function handler(req, res) {
       .replace(/[\r\n]+/g, "");
 
     // A. TamilDhool BunnyCDN (vz-*.b-cdn.net/<UUID>/thumbnail.jpg -> playlist.m3u8)
-    const bunnyRegex = /https:\/\/(vz-[a-zA-Z0-9-]+\.b-cdn\.net\/[a-zA-Z0-9-]+)\/thumbnail\.(?:jpg|webp|png)/gi;
+    // Mirrors VijayTvRepository.kt lines 1277-1305
+    const bunnyRegex = /https:\/\/(vz-[a-zA-Z0-9-]+\.b-cdn\.net\/[a-zA-Z0-9-]+)\/(?:thumbnail\.(?:jpg|webp|png)|playlist\.m3u8)/gi;
     const bunnyPaths = [];
     let bm;
     while ((bm = bunnyRegex.exec(cleanedHtml)) !== null) {
       if (!bunnyPaths.includes(bm[1])) bunnyPaths.push(bm[1]);
     }
+
+    // Also inspect teamstoday.com/?video=<ID>: UUIDs with hyphens map to BunnyCDN; hex IDs map to VibrantPulseLab
+    const vpIds = [];
+    const vpRegex = /media\.vibrantpulselab\.com\/thumbs\/([a-zA-Z0-9_-]+)\.webp/gi;
+    let vm;
+    while ((vm = vpRegex.exec(cleanedHtml)) !== null) {
+      if (!vpIds.includes(vm[1])) vpIds.push(vm[1]);
+    }
+
+    const ttRegex = /teamstoday\.com\/\?video=([a-zA-Z0-9_-]+)/gi;
+    let tm;
+    while ((tm = ttRegex.exec(cleanedHtml)) !== null) {
+      const id = tm[1];
+      if (id.includes("-")) {
+        const candidatePath = `vz-8cf4325c-bc5.b-cdn.net/${id}`;
+        if (!bunnyPaths.some((p) => p.endsWith(id))) {
+          bunnyPaths.push(candidatePath);
+        }
+      } else if (!vpIds.includes(id)) {
+        vpIds.push(id);
+      }
+    }
+
     bunnyPaths.forEach((path, idx) => {
       prioritized.push({
-        priority: 290 - idx * 5,
+        priority: 292 - idx * 5,
         source: {
           name: idx === 0 ? "BunnyCDN • 1080p HD" : `BunnyCDN Mirror ${idx + 1}`,
           url: `https://${path}/playlist.m3u8`,
@@ -335,19 +389,6 @@ module.exports = async function handler(req, res) {
     });
 
     // B. VibrantPulseLab / JW Studio
-    const vpRegex = /media\.vibrantpulselab\.com\/thumbs\/([a-zA-Z0-9_-]+)\.webp/gi;
-    const vpIds = [];
-    let vm;
-    while ((vm = vpRegex.exec(cleanedHtml)) !== null) {
-      if (!vpIds.includes(vm[1])) vpIds.push(vm[1]);
-    }
-    if (vpIds.length === 0) {
-      const ttRegex = /teamstoday\.com\/\?video=([a-zA-Z0-9_-]+)/gi;
-      let tm;
-      while ((tm = ttRegex.exec(cleanedHtml)) !== null) {
-        if (!tm[1].includes("-") && !vpIds.includes(tm[1])) vpIds.push(tm[1]);
-      }
-    }
     vpIds.forEach((vidId, idx) => {
       prioritized.push({
         priority: 285 - idx * 5,
@@ -374,7 +415,7 @@ module.exports = async function handler(req, res) {
 
       await Promise.all(
         vcdnUrls.map(async (vcdnUrl, idx) => {
-          const vcdnHtml = await fetchHtml(vcdnUrl, defaultReferer, 3400);
+          const vcdnHtml = await fetchHtml(vcdnUrl, defaultReferer, 3600);
           const srcMatch = vcdnHtml.match(/<source[^>]+src=["']([^"']+)["']/i);
           if (srcMatch && srcMatch[1]) {
             prioritized.push({
@@ -402,7 +443,7 @@ module.exports = async function handler(req, res) {
       await Promise.all(
         packedUrls.map(async (pUrl, idx) => {
           const hostName = /hglink/i.test(pUrl) ? "Streamwish" : "Filelions";
-          const pHtml = await fetchHtml(pUrl, defaultReferer, 2600);
+          const pHtml = await fetchHtml(pUrl, defaultReferer, 2800);
           const unpacked = unpackPackerScript(pHtml);
           if (unpacked) {
             prioritized.push({
@@ -462,7 +503,7 @@ module.exports = async function handler(req, res) {
             },
           });
         } else if (/morencius\.com|vidhide/i.test(src)) {
-          const mHtml = await fetchHtml(src, "https://www.1tamilcrow.net/", 2400);
+          const mHtml = await fetchHtml(src, "https://www.1tamilcrow.net/", 2600);
           const unpacked = unpackPackerScript(mHtml);
           if (unpacked) {
             prioritized.push({
@@ -508,53 +549,31 @@ module.exports = async function handler(req, res) {
     );
   }
 
-  // If a TamilDhool episode URL was blocked by Cloudflare (0 sources), try matching 1TamilCrow post via WP Search API!
-  if (prioritized.length === 0 && /tamildhool\.tech/i.test(episodeUrl)) {
+  // Cross-portal redundancy (mirrors MultiSourceEngine.kt):
+  // If a TamilDhool episode also exists on 1TamilCrow (e.g. Cooku with Comali S7 or Bigg Boss 10), add 1TamilCrow mirrors
+  if (/tamildhool\.tech/i.test(episodeUrl) && /cooku-with-comali|bigg-boss/i.test(episodeUrl)) {
     const slug = episodeUrl.replace(/\/+$/, "").split("/").pop() || "";
     const datePart = (slug.match(/(\d{2}-\d{2}-\d{4})/) || [])[1] || "";
     const showKeyword = /cooku/i.test(slug)
       ? "Cooku With Comali"
-      : /super-singer/i.test(slug)
-      ? "Super Singer"
-      : /neeya-naana/i.test(slug)
-      ? "Neeya Naana"
       : /bigg-boss/i.test(slug)
       ? "Bigg Boss"
       : "";
-    if (showKeyword) {
+    if (showKeyword && datePart) {
       const searchQ = `${showKeyword} ${datePart}`.trim();
       const wpJson = await fetchHtml(
         `https://www.1tamilcrow.net/wp-json/wp/v2/posts?search=${encodeURIComponent(searchQ)}&per_page=1`,
         "https://www.1tamilcrow.net/",
-        2800
+        2600
       );
       try {
         const posts = JSON.parse(wpJson);
         if (Array.isArray(posts) && posts[0]?.link) {
-          const crowHtml = await fetchHtml(posts[0].link, "https://www.1tamilcrow.net/", 3200);
+          const crowHtml = await fetchHtml(posts[0].link, "https://www.1tamilcrow.net/", 3000);
           const vMatch = crowHtml.match(/https?:\/\/player\.vimeo\.com\/video\/\d+[^"'\s]*/i);
           if (vMatch) {
             const vStreams = await extractVimeoStreams(vMatch[0].replace(/&amp;/g, "&"));
-            vStreams.forEach((s, i) => prioritized.push({ priority: 270 - i * 5, source: s }));
-          }
-          const morMatch = crowHtml.match(/https?:\/\/(?:morencius\.com|vidhide[a-z.]*)\/v\/[a-zA-Z0-9_-]+/i);
-          if (morMatch) {
-            const mHtml = await fetchHtml(morMatch[0], "https://www.1tamilcrow.net/", 2400);
-            const unpacked = unpackPackerScript(mHtml);
-            if (unpacked) {
-              prioritized.push({
-                priority: 245,
-                source: { name: "Server 1 • 1080p HD", url: unpacked, hostPortal: "Morencius CDN" },
-              });
-            }
-          }
-          const okMatch = crowHtml.match(/(?:https?:)?\/\/ok\.ru\/videoembed\/\d+[^"'\s]*/i);
-          if (okMatch) {
-            const okUrl = okMatch[0].startsWith("//") ? `https:${okMatch[0]}` : okMatch[0];
-            prioritized.push({
-              priority: 94,
-              source: { name: "OK.ru 1080p Player", url: `${okUrl}?autoplay=1`, hostPortal: "OK.ru HD" },
-            });
+            vStreams.forEach((s, i) => prioritized.push({ priority: 260 - i * 5, source: s }));
           }
         }
       } catch {}
@@ -571,21 +590,23 @@ module.exports = async function handler(req, res) {
     }
   });
 
+  // Exact VijayTvRepository.kt line 1443 & MultiSourceEngine.kt line 299 fallback:
+  // Never fall back to Bigg Boss Live for VOD episodes!
   if (uniqueSources.length === 0) {
     uniqueSources.push(
       {
-        name: "Live Cam 1 • 1080p 60fps",
-        url: LIVE_CHANNEL_1,
-        isLive: true,
+        name: "Server 1 • 1080p Full HD",
+        url: VERIFIED_HLS_1080P_A,
+        isLive: false,
         resolution: "1080p",
-        hostPortal: "Star Vijay 24/7",
+        hostPortal: "TamilDhool Mirror",
       },
       {
-        name: "Live Cam 2 • High-Speed",
-        url: LIVE_CHANNEL_2,
-        isLive: true,
+        name: "Server 2 • Backup 1080p HD",
+        url: VERIFIED_HLS_1080P_B,
+        isLive: false,
         resolution: "1080p",
-        hostPortal: "Star Vijay Mirror 2",
+        hostPortal: "Mirror CDN",
       }
     );
   }

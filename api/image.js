@@ -45,14 +45,18 @@ module.exports = async function handler(req, res) {
   const referer = /tamildhool/i.test(rawUrl)
     ? "https://www.tamildhool.tech/"
     : /5movierulz/i.test(rawUrl)
-    ? "https://www.5movierulz.supplies/"
+    ? "https://www.5movierulz.green/"
     : "https://www.1tamilcrow.net/";
 
   const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), 4500);
+  const timer = setTimeout(() => controller.abort(), 5000);
 
   try {
-    const upstream = await fetch(rawUrl, {
+    const fetchTarget = /tamildhool\.tech/i.test(rawUrl)
+      ? `https://wsrv.nl/?url=${encodeURIComponent(rawUrl)}`
+      : rawUrl;
+
+    let upstream = await fetch(fetchTarget, {
       headers: {
         "User-Agent": USER_AGENT,
         Referer: referer,
@@ -61,6 +65,14 @@ module.exports = async function handler(req, res) {
       redirect: "follow",
       signal: controller.signal,
     });
+
+    if ((!upstream.ok || !(upstream.headers.get("content-type") || "").startsWith("image/")) && fetchTarget === rawUrl) {
+      upstream = await fetch(`https://wsrv.nl/?url=${encodeURIComponent(rawUrl)}`, {
+        headers: { "User-Agent": USER_AGENT },
+        redirect: "follow",
+        signal: controller.signal,
+      });
+    }
 
     const contentType = upstream.headers.get("content-type") || "";
     if (!upstream.ok || !contentType.startsWith("image/")) {

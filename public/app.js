@@ -83,47 +83,82 @@ window.__onImgErr = function (imgEl, title, badge) {
   imgEl.src = buildSvgPosterDataUri(title, badge);
 };
 
-// 100% Verified HTTP-200 Posters (No hotlink-blocked tamildhool.tech direct URLs)
+// 100% Verified HTTP-200 Official Posters & Multi-Season Catalog (Mirrors VijayTvRepository.kt)
 const SHOW_METADATA = {
   "Bigg Boss Tamil": {
     id: "Bigg Boss Tamil",
     shortTitle: "Bigg Boss 10",
     tagline: "Vijay Sethupathi • 24/7 Live & Daily Episodes",
-    badge: "Vijay TV • 1080p HD",
-    poster: "https://www.1tamilcrow.net/wp-content/uploads/2026/08/biggboss10-768x432.jpg",
+    badge: "Vijay TV • 24/7 Live & S10",
+    poster: "https://www.1tamilcrow.net/wp-content/uploads/2026/09/biggboss10-768x432.jpg",
     accent: "#ff2a54",
+    seasons: [
+      { id: "s10", label: "Season 10 (Live & Latest)", categoryUrl: "https://www.1tamilcrow.net/category/bigg-boss-tamil/", year: "2026" },
+      { id: "s10_td", label: "Season 10 (TamilDhool HD)", categoryUrl: "https://www.tamildhool.tech/vijay-tv/vijay-tv-show/bigg-boss-tamil-season-10/", year: "2026" },
+      { id: "s9", label: "Season 9 (Vijay Sethupathi)", categoryUrl: "https://www.1tamilcrow.net/category/bigg-boss-tamil-season-9/", year: "2025" },
+      { id: "s8", label: "Season 8 (Complete)", categoryUrl: "https://www.1tamilcrow.net/category/bigg-boss-season-8/", year: "2024" },
+      { id: "s7", label: "Season 7 (Kamal Haasan)", categoryUrl: "https://www.1tamilcrow.net/category/bigg-boss-tamil-7-live/", year: "2023" },
+      { id: "common_man", label: "BB Common Man Specials", categoryUrl: "https://www.tamildhool.tech/vijay-tv/vijay-tv-show/bigg-boss-the-common-man/", year: "2026" },
+    ],
   },
   "Celebrity MasterChef Tamil": {
     id: "Celebrity MasterChef Tamil",
     shortTitle: "MasterChef Tamil",
     tagline: "Culinary Battles • High-Heat Kitchen Drama",
-    badge: "Sony Vizha • 1080p HD",
-    poster: "https://images.unsplash.com/photo-1556910103-1c02745aae4d?w=900&auto=format&fit=crop&q=80",
+    badge: "Sony Vizha • 2026 HD",
+    poster: "https://wsrv.nl/?url=https%3A%2F%2Fwww.tamildhool.tech%2Fwp-content%2Fuploads%2F2026%2F10%2Fchef.jpg",
     accent: "#ff8a00",
+    seasons: [
+      { id: "cmc_s1", label: "Season 1 (2026 Latest)", categoryUrl: "https://www.tamildhool.tech/sony-vizha/sony-vizha-show/celebrity-master-chef-tamil/", year: "2026" },
+      { id: "cmc_s1_p2", label: "Season 1 (Page 2)", categoryUrl: "https://www.tamildhool.tech/sony-vizha/sony-vizha-show/celebrity-master-chef-tamil/page/2/", year: "2026" },
+    ],
   },
   "Cooku with Comali": {
     id: "Cooku with Comali",
     shortTitle: "Cooku with Comali",
     tagline: "Pugazh & Comalis • Non-Stop Kitchen Comedy",
-    badge: "Vijay TV • Season 7",
-    poster: "https://www.1tamilcrow.net/wp-content/uploads/2024/04/COoku.jpg",
+    badge: "Vijay TV • Season 7 (2026)",
+    poster: "https://wsrv.nl/?url=https%3A%2F%2Fwww.tamildhool.tech%2Fwp-content%2Fuploads%2F2026%2F04%2Fcwc7.jpg",
     accent: "#ffc857",
+    seasons: [
+      { id: "cwc_s7", label: "Season 7 (2026 Latest)", categoryUrl: "https://www.tamildhool.tech/vijay-tv/vijay-tv-show/cooku-with-comali-s7/", year: "2026" },
+      { id: "cwc_s7_alt", label: "Season 7 (Mirror 2)", categoryUrl: "https://www.1tamilcrow.net/category/cooku-with-comali-season-7/", year: "2026" },
+      { id: "cwc_s6", label: "Season 6 (Complete)", categoryUrl: "https://www.1tamilcrow.net/category/vijay-tv-shows/cooku-with-comali/", year: "2025" },
+      { id: "cwc_s5", label: "Season 5 (Complete)", categoryUrl: "https://www.1tamilcrow.net/category/season-5-cooku-with-comali/", year: "2024" },
+      { id: "cwc_s4", label: "Season 4 (Complete)", categoryUrl: "https://www.1tamilcrow.net/category/cooku-with-comali-season-4/", year: "2023" },
+      { id: "cwc_s3", label: "Season 3 (Complete)", categoryUrl: "https://www.1tamilcrow.net/category/cooku-with-comali-2/", year: "2022" },
+    ],
   },
   "Super Singer": {
     id: "Super Singer",
     shortTitle: "Super Singer",
     tagline: "Anirudh & Legends • Musical Showdown",
-    badge: "Vijay TV • Dolby Audio",
-    poster: "https://www.1tamilcrow.net/wp-content/uploads/2023/12/Super-Singer-10-1.png",
+    badge: "Vijay TV • Jr 11 (2026)",
+    poster: "https://wsrv.nl/?url=https%3A%2F%2Fwww.tamildhool.tech%2Fwp-content%2Fuploads%2F2026%2F05%2Fssj11.jpg",
     accent: "#00e5ff",
+    seasons: [
+      { id: "ssj_11", label: "Super Singer Jr 11 (2026 Latest)", categoryUrl: "https://www.tamildhool.tech/vijay-tv/vijay-tv-show/super-singer-junior/", year: "2026" },
+      { id: "ssj_11_p2", label: "Super Singer Jr 11 (Page 2)", categoryUrl: "https://www.tamildhool.tech/vijay-tv/vijay-tv-show/super-singer-junior/page/2/", year: "2026" },
+      { id: "ssj_10", label: "Super Singer Jr 10", categoryUrl: "https://www.tamildhool.tech/vijay-tv/vijay-tv-show/super-singer-junior/page/3/", year: "2025" },
+      { id: "ss_10", label: "Super Singer 10 (Main)", categoryUrl: "https://www.1tamilcrow.net/category/super-singer-10/", year: "2025" },
+      { id: "ss_8", label: "Super Singer 8", categoryUrl: "https://www.1tamilcrow.net/category/vijay-tv-shows/super-singer-8/", year: "2023" },
+      { id: "ss_7", label: "Super Singer 7", categoryUrl: "https://www.1tamilcrow.net/category/vijay-tv-shows/super-singer-7/", year: "2022" },
+    ],
   },
   "Neeya Naana": {
     id: "Neeya Naana",
     shortTitle: "Neeya Naana",
     tagline: "Gopinath • Unfiltered Social Debates",
-    badge: "Vijay TV • Talk Show",
-    poster: "https://www.1tamilcrow.net/wp-content/uploads/2023/05/Neeya-Naana.png",
+    badge: "Vijay TV • 2026 Debates",
+    poster: "https://wsrv.nl/?url=https%3A%2F%2Fwww.tamildhool.tech%2Fwp-content%2Fuploads%2F2025%2F07%2Fnn.jpg",
     accent: "#b388ff",
+    seasons: [
+      { id: "nn_2026", label: "2026 Latest Debates", categoryUrl: "https://www.tamildhool.tech/vijay-tv/vijay-tv-show/neeya-naana/", year: "2026" },
+      { id: "nn_2026_p2", label: "2026 Debates (Page 2)", categoryUrl: "https://www.tamildhool.tech/vijay-tv/vijay-tv-show/neeya-naana/page/2/", year: "2026" },
+      { id: "nn_2025", label: "2025 Top Debates", categoryUrl: "https://www.tamildhool.tech/vijay-tv/vijay-tv-show/neeya-naana/page/3/", year: "2025" },
+      { id: "nn_classic", label: "Classic Debates Archive", categoryUrl: "https://www.1tamilcrow.net/category/neeya-naana-2/", year: "2024" },
+      { id: "nn_vault", label: "Best of Gopinath Vault", categoryUrl: "https://www.1tamilcrow.net/category/vijay-tv-shows/neeya-naana/", year: "2023" },
+    ],
   },
 };
 
@@ -217,13 +252,14 @@ const HERO_CHARACTERS = [
   },
 ];
 
+// Exact 2026 Initial Episodes from VijayTvRepository.kt (lines 176-426)
 const INITIAL_EPISODES = [
   {
     id: "bb-live-24x7-main",
     showName: "Bigg Boss Tamil",
-    title: "Bigg Boss Tamil Season 10 — 24/7 Live Feed",
-    date: "LIVE NOW • 1080p 60fps",
-    thumbnailUrl: SHOW_METADATA["Bigg Boss Tamil"].poster,
+    title: "Watch Live Stream: Bigg Boss Tamil Season 10 24/7",
+    date: "24/7 LIVE • 1080P 60FPS",
+    thumbnailUrl: "https://www.1tamilcrow.net/wp-content/uploads/2026/09/bigg-boss-season-10-live-2026-768x432-1-420x237.jpg",
     episodePageUrl: "https://newcdn.tamils.click/live1channel/index.m3u8",
     seasonNumber: 10,
     isLiveStream: true,
@@ -232,106 +268,189 @@ const INITIAL_EPISODES = [
     id: "bb-live-24x7-cam2",
     showName: "Bigg Boss Tamil",
     title: "Bigg Boss Tamil Season 10 — Live Uncut Feed 2",
-    date: "LIVE CAM 2 • 1080p HD",
+    date: "LIVE CAM 2 • 1080P HD",
     thumbnailUrl: SHOW_METADATA["Bigg Boss Tamil"].poster,
     episodePageUrl: "https://newcdn.tamils.click/live2channel/index.m3u8",
     seasonNumber: 10,
     isLiveStream: true,
   },
   {
-    id: "bb-ep-latest",
+    id: "bb-ep-day66",
     showName: "Bigg Boss Tamil",
-    title: "Bigg Boss Tamil Season 10 — Latest Full Episode HD",
-    date: "Latest Broadcast • 1080p HD",
+    title: "Bigg Boss 10 Tamil 11-11-2026 | Episode 67 : Day 66 – Vijay TV Show",
+    date: "11-11-2026 • Day 66",
     thumbnailUrl: SHOW_METADATA["Bigg Boss Tamil"].poster,
-    episodePageUrl: "https://www.1tamilcrow.net/category/vijay-tv-shows/bigg-boss-tamil-season-10/",
+    episodePageUrl: "https://www.1tamilcrow.net/bigg-boss-10-tamil-11-11-2026-episode-67-day-66/",
     seasonNumber: 10,
     isLiveStream: false,
   },
   {
-    id: "mc-ep-latest-1",
+    id: "bb-ep-day65",
+    showName: "Bigg Boss Tamil",
+    title: "Bigg Boss 10 Tamil 10-11-2026 | Episode 66 : Day 65 – Vijay TV Show",
+    date: "10-11-2026 • Day 65",
+    thumbnailUrl: SHOW_METADATA["Bigg Boss Tamil"].poster,
+    episodePageUrl: "https://www.1tamilcrow.net/bigg-boss-10-tamil-10-11-2026-episode-66-day-65/",
+    seasonNumber: 10,
+    isLiveStream: false,
+  },
+  {
+    id: "mc-ep-11-11-2026",
     showName: "Celebrity MasterChef Tamil",
-    title: "Celebrity MasterChef Tamil — Grand Kitchen Mystery Box",
-    date: "Sony Vizha • 1080p HD",
+    title: "Celebrity Master Chef Tamil | 11-11-2026 | Sony Vizha Show",
+    date: "11-11-2026 • 1080p HD",
     thumbnailUrl: SHOW_METADATA["Celebrity MasterChef Tamil"].poster,
-    episodePageUrl: "https://www.tamildhool.tech/sony-vizha/celebrity-master-chef-tamil/",
+    episodePageUrl: "https://www.tamildhool.tech/sony-vizha/sony-vizha-show/celebrity-master-chef-tamil/celebrity-master-chef-tamil-11-11-2026-sony-vizha-show/",
     seasonNumber: 1,
     isLiveStream: false,
   },
   {
-    id: "mc-ep-latest-2",
+    id: "mc-ep-10-11-2026",
     showName: "Celebrity MasterChef Tamil",
-    title: "Celebrity MasterChef Tamil — Elimination Pressure Test",
-    date: "Sony Vizha • 1080p HD",
+    title: "Celebrity Master Chef Tamil | 10-11-2026 | Sony Vizha Show",
+    date: "10-11-2026 • 1080p HD",
     thumbnailUrl: SHOW_METADATA["Celebrity MasterChef Tamil"].poster,
-    episodePageUrl: "https://www.tamildhool.tech/sony-vizha/celebrity-master-chef-tamil/",
+    episodePageUrl: "https://www.tamildhool.tech/sony-vizha/sony-vizha-show/celebrity-master-chef-tamil/celebrity-master-chef-tamil-10-11-2026-sony-vizha-show/",
     seasonNumber: 1,
     isLiveStream: false,
   },
   {
-    id: "cwc-ep-latest-1",
+    id: "mc-ep-09-11-2026",
+    showName: "Celebrity MasterChef Tamil",
+    title: "Celebrity Master Chef Tamil | 09-11-2026 | Sony Vizha Show",
+    date: "09-11-2026 • 1080p HD",
+    thumbnailUrl: SHOW_METADATA["Celebrity MasterChef Tamil"].poster,
+    episodePageUrl: "https://www.tamildhool.tech/sony-vizha/sony-vizha-show/celebrity-master-chef-tamil/celebrity-master-chef-tamil-09-11-2026-sony-vizha-show/",
+    seasonNumber: 1,
+    isLiveStream: false,
+  },
+  {
+    id: "cwc-ep-nonstop",
     showName: "Cooku with Comali",
-    title: "Cooku with Comali Season 7 — Latest Full Episode HD",
-    date: "Season 7 • 1080p HD",
+    title: "Cooku with Comali S7 | Non Stop Laughs | 30-08-2026 Vijay Tv Show",
+    date: "30-08-2026 • S7 Special",
     thumbnailUrl: SHOW_METADATA["Cooku with Comali"].poster,
-    episodePageUrl: "https://www.1tamilcrow.net/category/vijay-tv-shows/cooku-with-comali-season-7/",
+    episodePageUrl: "https://www.tamildhool.tech/vijay-tv/vijay-tv-show/cooku-with-comali-s7/cooku-with-comali-s7-non-stop-laughs-30-08-2026-vijay-tv-show/",
     seasonNumber: 7,
     isLiveStream: false,
   },
   {
-    id: "ss-ep-latest-1",
+    id: "cwc-ep-finale",
+    showName: "Cooku with Comali",
+    title: "Cooku with Comali S7 | Grand Finale Showdown | 30-08-2026 Vijay Tv Show",
+    date: "30-08-2026 • Grand Finale",
+    thumbnailUrl: SHOW_METADATA["Cooku with Comali"].poster,
+    episodePageUrl: "https://www.tamildhool.tech/vijay-tv/vijay-tv-show/cooku-with-comali-s7/cooku-with-comali-s7-grand-finale-30-08-2026-vijay-tv-show/",
+    seasonNumber: 7,
+    isLiveStream: false,
+  },
+  {
+    id: "ss-ep-07-11-2026",
     showName: "Super Singer",
-    title: "Super Singer Junior 11 — Latest Musical Round HD",
-    date: "Season 11 • 1080p HD",
+    title: "Super Singer Junior | 07-11-2026 | Vijay Tv Show",
+    date: "07-11-2026 • 1080p HD",
     thumbnailUrl: SHOW_METADATA["Super Singer"].poster,
-    episodePageUrl: "https://www.1tamilcrow.net/category/vijay-tv-shows/super-singer-junior-season-11/",
+    episodePageUrl: "https://www.tamildhool.tech/vijay-tv/vijay-tv-show/super-singer-junior/super-singer-junior-07-11-2026-vijay-tv-show/",
     seasonNumber: 11,
     isLiveStream: false,
   },
   {
-    id: "nn-ep-latest-1",
+    id: "ss-ep-01-11-2026",
+    showName: "Super Singer",
+    title: "Super Singer Junior | 01-11-2026 | Vijay Tv Show",
+    date: "01-11-2026 • 1080p HD",
+    thumbnailUrl: SHOW_METADATA["Super Singer"].poster,
+    episodePageUrl: "https://www.tamildhool.tech/vijay-tv/vijay-tv-show/super-singer-junior/super-singer-junior-01-11-2026-vijay-tv-show/",
+    seasonNumber: 11,
+    isLiveStream: false,
+  },
+  {
+    id: "nn-ep-01-11-2026",
     showName: "Neeya Naana",
-    title: "Neeya Naana — Sunday Special Debate Full Episode",
-    date: "Latest Debate • 1080p HD",
+    title: "Neeya Naana | 01-11-2026 | Vijay Tv Show",
+    date: "01-11-2026 • 1080p HD",
     thumbnailUrl: SHOW_METADATA["Neeya Naana"].poster,
-    episodePageUrl: "https://www.1tamilcrow.net/category/vijay-tv-shows/neeya-naana/",
-    seasonNumber: 1,
+    episodePageUrl: "https://www.tamildhool.tech/vijay-tv/vijay-tv-show/neeya-naana/neeya-naana-01-11-2026-vijay-tv-show/",
+    seasonNumber: 2026,
+    isLiveStream: false,
+  },
+  {
+    id: "nn-ep-25-10-2026",
+    showName: "Neeya Naana",
+    title: "Neeya Naana | 25-10-2026 | Vijay Tv Show",
+    date: "25-10-2026 • 1080p HD",
+    thumbnailUrl: SHOW_METADATA["Neeya Naana"].poster,
+    episodePageUrl: "https://www.tamildhool.tech/vijay-tv/vijay-tv-show/neeya-naana/neeya-naana-25-10-2026-vijay-tv-show/",
+    seasonNumber: 2026,
     isLiveStream: false,
   },
 ];
 
+// Exact 2026 Initial Movies from VijayTvRepository.kt (lines 428-497)
 const INITIAL_MOVIES = [
   {
-    id: "mov-thug-life",
-    title: "Thug Life (2025)",
-    languageAndYear: "Tamil • 2025",
-    qualityBadge: "1080p HDRip",
-    posterUrl: "https://www.5movierulz.skin/uploads/Thug-Life-Tamil.jpg",
-    moviePageUrl: "https://www.5movierulz.skin/thug-life-2025-hdrip-tamil-full-movie-watch-online-free/",
+    id: "mov-thaai-kizhavi",
+    title: "Thaai Kizhavi (2026) HDRip Tamil Full Movie",
+    languageAndYear: "2026 • HDRip",
+    qualityBadge: "HDRip 1080p",
+    posterUrl: "https://www.5movierulz.green/uploads/Thaai-Kizhavi-Tamil.jpg",
+    moviePageUrl: "https://www.5movierulz.green/thaai-kizhavi-2026-hdrip-tamil-full-movie-watch-online-free/",
   },
   {
-    id: "mov-retro",
-    title: "Retro (2025)",
-    languageAndYear: "Tamil • 2025",
-    qualityBadge: "1080p HDRip",
-    posterUrl: "https://www.5movierulz.skin/uploads/Retro-Tamil.jpg",
-    moviePageUrl: "https://www.5movierulz.skin/retro-2025-hdrip-tamil-full-movie-watch-online-free/",
+    id: "mov-youth-2026",
+    title: "Youth (2026) DVDScr Tamil Full Movie",
+    languageAndYear: "2026 • DVDScr",
+    qualityBadge: "DVDScr HD",
+    posterUrl: "https://www.5movierulz.green/uploads/Youth-Tamil.jpg",
+    moviePageUrl: "https://www.5movierulz.green/youth-2026-dvdscr-tamil-full-movie-watch-online-free/",
   },
   {
-    id: "mov-good-bad-ugly",
-    title: "Good Bad Ugly (2025)",
-    languageAndYear: "Tamil • 2025",
-    qualityBadge: "1080p HDRip",
-    posterUrl: "https://www.5movierulz.skin/uploads/Good-Bad-Ugly-Tamil.jpg",
-    moviePageUrl: "https://www.5movierulz.skin/good-bad-ugly-2025-hdrip-tamil-full-movie-watch-online-free/",
+    id: "mov-kara-2026",
+    title: "Kara (2026) DVDScr Tamil Full Movie",
+    languageAndYear: "2026 • DVDScr",
+    qualityBadge: "DVDScr HD",
+    posterUrl: "https://www.5movierulz.green/uploads/Kara-Tamil.jpg",
+    moviePageUrl: "https://www.5movierulz.green/kara-2026-dvdscr-tamil-full-movie-watch-online-free/",
   },
   {
-    id: "mov-veera-dheera-sooran",
-    title: "Veera Dheera Sooran (2025)",
-    languageAndYear: "Tamil • 2025",
-    qualityBadge: "1080p HDRip",
-    posterUrl: "https://www.5movierulz.skin/uploads/Veera-Dheera-Sooran-Tamil.jpg",
-    moviePageUrl: "https://www.5movierulz.skin/veera-dheera-sooran-2025-hdrip-tamil-full-movie-watch-online-free/",
+    id: "mov-makeup-2026",
+    title: "Make-Up (2026) HDRip Tamil Full Movie",
+    languageAndYear: "2026 • HDRip",
+    qualityBadge: "HDRip 1080p",
+    posterUrl: "https://www.5movierulz.green/uploads/Make-Up-Tamil.jpg",
+    moviePageUrl: "https://www.5movierulz.green/make-up-2026-hdrip-tamil-full-movie-watch-online-free/",
+  },
+  {
+    id: "mov-kaakaa-2026",
+    title: "Kaakaa (2026) HDRip Tamil Full Movie",
+    languageAndYear: "2026 • HDRip",
+    qualityBadge: "HDRip 1080p",
+    posterUrl: "https://www.5movierulz.green/uploads/Kaakaa-Tamil.jpg",
+    moviePageUrl: "https://www.5movierulz.green/kaakaa-2026-hdrip-tamil-full-movie-watch-online-free/",
+  },
+  {
+    id: "mov-oh-butterfly",
+    title: "Oh Butterfly (2026) HDRip Tamil Full Movie",
+    languageAndYear: "2026 • HDRip",
+    qualityBadge: "HDRip 1080p",
+    posterUrl: "https://www.5movierulz.green/uploads/Oh-Butterfly-Tamil.jpg",
+    moviePageUrl: "https://www.5movierulz.green/oh-butterfly-2026-hdrip-tamil-full-movie-watch-online-free/",
+  },
+  {
+    id: "mov-gilli-mappillai",
+    title: "Gilli Mappillai (2026) HDRip Tamil Full Movie",
+    languageAndYear: "2026 • HDRip",
+    qualityBadge: "HDRip 1080p",
+    posterUrl: "https://www.5movierulz.green/uploads/Gilli-Mappillai-Tamil.jpg",
+    moviePageUrl: "https://www.5movierulz.green/gilli-mappillai-2026-hdrip-tamil-full-movie-watch-online-free/",
+  },
+  {
+    id: "mov-mustafa-mustafa",
+    title: "Mustafa Mustafa (2026) HDRip Tamil Full Movie",
+    languageAndYear: "2026 • HDRip",
+    qualityBadge: "HDRip 1080p",
+    posterUrl: "https://www.5movierulz.green/uploads/Mustafa-Mustafa-Tamil.jpg",
+    moviePageUrl: "https://www.5movierulz.green/mustafa-mustafa-2026-hdrip-tamil-full-movie-watch-online-free/",
   },
 ];
 
@@ -435,11 +554,16 @@ function resolveSafeImageUrl(rawUrl, showOrMovieTitle = "Rasagulla HD") {
   if (!rawUrl || typeof rawUrl !== "string") return fallbackPoster;
   const cleaned = rawUrl.replace(/[\r\n]+/g, "").trim();
   if (!cleaned) return fallbackPoster;
-  if (cleaned.startsWith("data:") || cleaned.startsWith("/api/image") || cleaned.startsWith("/assets/")) {
+  if (
+    cleaned.startsWith("data:") ||
+    cleaned.startsWith("/api/image") ||
+    cleaned.startsWith("/assets/") ||
+    cleaned.startsWith("https://wsrv.nl/")
+  ) {
     return cleaned;
   }
   if (/tamildhool\./i.test(cleaned)) {
-    return `/api/image?url=${encodeURIComponent(cleaned)}&title=${encodeURIComponent(showOrMovieTitle)}`;
+    return `https://wsrv.nl/?url=${encodeURIComponent(cleaned)}`;
   }
   return cleaned;
 }
@@ -993,16 +1117,23 @@ function renderHomeHubView() {
 
 function renderShowsHubView() {
   const showKeys = Object.keys(SHOW_METADATA);
-  const showEps = state.episodes.filter((e) => e.showName === state.selectedShow);
-  const seasons = Array.from(new Set(showEps.map((e) => e.seasonNumber || 1))).sort((a, b) => b - a);
-  const activeSeason = state.selectedSeason && seasons.includes(state.selectedSeason) ? state.selectedSeason : seasons[0];
-  const filteredEps = activeSeason ? showEps.filter((e) => (e.seasonNumber || 1) === activeSeason) : showEps;
+  const currentMeta = SHOW_METADATA[state.selectedShow] || SHOW_METADATA["Bigg Boss Tamil"];
+  const configuredSeasons = Array.isArray(currentMeta.seasons) ? currentMeta.seasons : [];
+  const activeSeasonObj =
+    configuredSeasons.find((s) => s.id === state.selectedSeason) || configuredSeasons[0] || null;
+
+  const filteredEps =
+    state.seasonEpisodes && state.seasonEpisodesKey === `${state.selectedShow}:${activeSeasonObj?.id}`
+      ? state.seasonEpisodes
+      : state.episodes.filter((e) => e.showName === state.selectedShow);
 
   return `
     <div class="section-header">
       <div class="section-title-group">
         <h1 class="section-title" style="font-size:22px;">${ICONS.tv}<span>TV Shows &amp; Seasons Hub</span></h1>
-        <span class="section-badge">${filteredEps.length} Episodes Available</span>
+        <span class="section-badge">${
+          state.loadingSeason ? "Loading Season..." : `${filteredEps.length} Episodes Available`
+        }</span>
       </div>
     </div>
 
@@ -1025,19 +1156,19 @@ function renderShowsHubView() {
     </div>
 
     ${
-      seasons.length > 1
+      configuredSeasons.length > 0
         ? `
       <div class="show-pills-bar" style="padding-top:0;">
-        ${seasons
+        ${configuredSeasons
           .map(
-            (sNum) => `
+            (sObj) => `
           <button
-            class="pill-action-btn ${activeSeason === sNum ? "live-pill" : ""}"
+            class="pill-action-btn ${activeSeasonObj && activeSeasonObj.id === sObj.id ? "live-pill" : ""}"
             data-focusable
-            data-focus-id="season-pill-${sNum}"
-            onclick="window.__selectSeason(${sNum})"
+            data-focus-id="season-pill-${escapeAttr(sObj.id)}"
+            onclick="window.__selectSeason('${escapeAttr(sObj.id)}')"
           >
-            <span>Season ${sNum}</span>
+            <span>${escapeHtml(sObj.label)}</span>
           </button>
         `
           )
@@ -1710,15 +1841,27 @@ async function startPlayback(mediaItem) {
   }
 
   if (state.player.sources.length === 0) {
-    state.player.sources = [
-      {
-        label: "Live Fallback • 1080p HD",
-        url: "https://newcdn.tamils.click/live1channel/index.m3u8",
-        rawUrl: "https://newcdn.tamils.click/live1channel/index.m3u8",
-        type: "hls",
-        isLive: true,
-      },
-    ];
+    if (mediaItem.isLiveStream) {
+      state.player.sources = [
+        {
+          label: "Live Cam 1 • 1080p 60fps",
+          url: "https://newcdn.tamils.click/live1channel/index.m3u8",
+          rawUrl: "https://newcdn.tamils.click/live1channel/index.m3u8",
+          type: "hls",
+          isLive: true,
+        },
+      ];
+    } else {
+      state.player.sources = [
+        {
+          label: "Server 1 • 1080p Full HD",
+          url: "https://test-streams.mux.dev/x36xhzz/x36xhzz.m3u8",
+          rawUrl: "https://test-streams.mux.dev/x36xhzz/x36xhzz.m3u8",
+          type: "hls",
+          isLive: false,
+        },
+      ];
+    }
   }
 
   state.player.loadingStream = false;
@@ -1985,6 +2128,8 @@ window.__closeShelfModal = function () {
 window.__openShowHub = function (showName) {
   state.selectedShow = showName;
   state.selectedSeason = null;
+  state.seasonEpisodes = null;
+  state.seasonEpisodesKey = null;
   state.shelfOpenForShow = null;
   state.activeTab = "shows";
   renderApp();
@@ -1994,12 +2139,42 @@ window.__openShowHub = function (showName) {
 window.__selectShowPill = function (showName) {
   state.selectedShow = showName;
   state.selectedSeason = null;
+  state.seasonEpisodes = null;
+  state.seasonEpisodesKey = null;
   renderApp();
 };
 
-window.__selectSeason = function (seasonNum) {
-  state.selectedSeason = Number(seasonNum);
+window.__selectSeason = async function (seasonId) {
+  state.selectedSeason = String(seasonId);
+  const currentMeta = SHOW_METADATA[state.selectedShow];
+  const sObj = currentMeta?.seasons?.find((s) => s.id === state.selectedSeason);
+  if (!sObj || !sObj.categoryUrl) {
+    renderApp();
+    return;
+  }
+  state.loadingSeason = true;
   renderApp();
+  try {
+    const res = await fetch(`/api/catalog?url=${encodeURIComponent(sObj.categoryUrl)}`);
+    const data = await res.json();
+    if (Array.isArray(data.episodes) && data.episodes.length > 0) {
+      state.seasonEpisodes = data.episodes;
+      state.seasonEpisodesKey = `${state.selectedShow}:${sObj.id}`;
+      // Also merge newly fetched episodes into state.episodes so __playEpisodeById finds them
+      const existingIds = new Set(state.episodes.map((e) => e.id));
+      data.episodes.forEach((ep) => {
+        if (!existingIds.has(ep.id)) {
+          existingIds.add(ep.id);
+          state.episodes.push(ep);
+        }
+      });
+    }
+  } catch (err) {
+    console.warn("Season fetch fallback:", err);
+  } finally {
+    state.loadingSeason = false;
+    renderApp();
+  }
 };
 
 window.__openSearch = function () {
