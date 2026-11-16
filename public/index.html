@@ -7,15 +7,18 @@
   <meta name="description" content="Rasagulla Cinema & TV — Premium Tamil Movies, Bigg Boss 10 24/7 Live, MasterChef, Cooku with Comali & Super Singer for Web, Mobile & Smart TV." />
   <title>Rasagulla — Cinema & TV 4K</title>
   <link rel="manifest" href="/manifest.json" />
+  <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin />
+  <link rel="preconnect" href="https://wsrv.nl" crossorigin />
+  <link rel="preload" as="image" href="/assets/cutouts/img_cutout_kamal.png" />
   <link rel="icon" type="image/png" href="/assets/cutouts/img_rasagulla_icon.png" />
   <link rel="apple-touch-icon" href="/assets/cutouts/img_rasagulla_icon.png" />
-  <link rel="stylesheet" href="/styles.css" />
+  <link rel="stylesheet" href="/styles.css?v=4" />
   <!-- HLS.js for Adaptive 1080p Full HD Streaming across Desktop, Mobile & Smart TV Browsers -->
-  <script src="https://cdn.jsdelivr.net/npm/hls.js@1.5.15/dist/hls.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/hls.js@1.5.15/dist/hls.min.js" defer></script>
 </head>
 <body>
   <div id="app"></div>
   <div id="toast-container"></div>
-  <script src="/app.js"></script>
+  <script src="/app.js?v=4" defer></script>
 </body>
 </html>

@@ -9,11 +9,40 @@ const VERIFIED_HLS_1080P_A = "https://test-streams.mux.dev/x36xhzz/x36xhzz.m3u8"
 const VERIFIED_HLS_1080P_B =
   "https://devstreaming-cdn.apple.com/videos/streaming/examples/img_bipbop_adv_example_ts/master.m3u8";
 
+const STREAM_CACHE = new Map();
+const STREAM_CACHE_FRESH_MS = 120 * 1000;
+const STREAM_CACHE_STALE_MS = 10 * 60 * 1000;
+
+function raceValidHtml(promises) {
+  return new Promise((resolve) => {
+    let pending = promises.length;
+    let settled = false;
+    if (pending === 0) return resolve(null);
+    promises.forEach((p) => {
+      Promise.resolve(p)
+        .then((val) => {
+          if (!settled && val && val.html) {
+            settled = true;
+            resolve(val);
+          }
+        })
+        .catch(() => {})
+        .finally(() => {
+          pending -= 1;
+          if (!settled && pending === 0) {
+            settled = true;
+            resolve(null);
+          }
+        });
+    });
+  });
+}
+
 /**
- * Concurrently attempts direct HTTP fetch and r.jina.ai raw-HTML relay for tamildhool.tech
- * so Cloudflare datacenter blocks on Vercel never prevent live stream extraction.
+ * Races direct HTTP fetch and r.jina.ai raw-HTML relay for tamildhool.tech
+ * so Cloudflare blocks never stall extraction; returns { html, finalUrl }.
  */
-async function fetchHtml(url, referer, timeoutMs = 6000) {
+async function fetchHtmlMeta(url, referer, timeoutMs = 5500) {
   const isTamilDhool = /tamildhool\.tech/i.test(url);
 
   const directPromise = (async () => {
@@ -30,19 +59,22 @@ async function fetchHtml(url, referer, timeoutMs = 6000) {
         redirect: "follow",
         signal: controller.signal,
       });
-      if (!resp.ok) return "";
+      if (!resp.ok) return null;
       const text = await resp.text();
-      if (!text || text.includes("<title>Just a moment")) return "";
-      return text;
+      if (!text || text.includes("<title>Just a moment") || text.includes("cf-browser-verification")) {
+        return null;
+      }
+      return { html: text, finalUrl: resp.url || url };
     } catch {
-      return "";
+      return null;
     } finally {
       clearTimeout(timer);
     }
   })();
 
   if (!isTamilDhool) {
-    return await directPromise;
+    const res = await directPromise;
+    return res || { html: "", finalUrl: url };
   }
 
   const jinaPromise = (async () => {
@@ -57,20 +89,24 @@ async function fetchHtml(url, referer, timeoutMs = 6000) {
         redirect: "follow",
         signal: controller.signal,
       });
-      if (!resp.ok) return "";
+      if (!resp.ok) return null;
       const text = await resp.text();
-      if (!text || text.includes("<title>Just a moment")) return "";
-      return text;
+      if (!text || text.includes("<title>Just a moment")) return null;
+      return { html: text, finalUrl: url };
     } catch {
-      return "";
+      return null;
     } finally {
       clearTimeout(timer);
     }
   })();
 
-  const directHtml = await directPromise;
-  if (directHtml) return directHtml;
-  return await jinaPromise;
+  const winner = await raceValidHtml([directPromise, jinaPromise]);
+  return winner || { html: "", finalUrl: url };
+}
+
+async function fetchHtml(url, referer, timeoutMs = 5500) {
+  const { html } = await fetchHtmlMeta(url, referer, timeoutMs);
+  return html;
 }
 
 function unpackPackerScript(html) {
@@ -110,18 +146,21 @@ async function extractVimeoStreams(vimeoUrl, partNumber = null) {
   if (!html) return [];
   const results = [];
   const avcRegex = /"avc_url"\s*:\s*"(https:\/\/[^"]+playlist\.m3u8[^"]*)"/g;
-  const matches = [];
+  const preferredMatches = [];
+  const allMatches = [];
   let m;
   while ((m = avcRegex.exec(html)) !== null) {
     const clean = m[1]
       .replace(/\\u0026/g, "&")
       .replace(/\\\//g, "/")
       .replace("sf=fmp4", "sf=ts");
+    if (!allMatches.includes(clean)) allMatches.push(clean);
     // Prefer vod-adaptive-ak which sends Access-Control-Allow-Origin: *
-    if (!matches.includes(clean) && !/skyfire\.vimeocdn\.com/i.test(clean)) {
-      matches.push(clean);
+    if (!preferredMatches.includes(clean) && !/skyfire\.vimeocdn\.com/i.test(clean)) {
+      preferredMatches.push(clean);
     }
   }
+  const matches = preferredMatches.length > 0 ? preferredMatches : allMatches;
 
   if (matches.length > 0) {
     if (partNumber !== null) {
@@ -236,6 +275,7 @@ function attachMirrorBadgesAndProxy(sources) {
       rawUrl: src.url,
       proxyUrl: proxyEndpoint,
       proxiedUrl: proxyEndpoint,
+      isProxiedByDefault: !isEmbed && requiresRefererProxy,
       isEmbed,
       type: isEmbed ? "iframe" : "hls",
       isLive: Boolean(src.isLive || /live1channel|live2channel/i.test(src.url)),
@@ -251,80 +291,27 @@ function attachMirrorBadgesAndProxy(sources) {
   });
 }
 
-module.exports = async function handler(req, res) {
-  res.setHeader("Access-Control-Allow-Origin", "*");
-  res.setHeader("Access-Control-Allow-Methods", "GET,OPTIONS");
-  if (req.method === "OPTIONS") {
-    return res.status(200).end();
-  }
-
-  const episodeUrl = (req.query.url || "").trim();
-  if (!episodeUrl) {
-    return res.status(400).json({ ok: false, error: "Missing url parameter", sources: [] });
-  }
-
-  // 1. Explicit Bigg Boss 24/7 Live Stream
-  const isBiggBossLive =
-    episodeUrl === LIVE_CHANNEL_1 ||
-    episodeUrl === LIVE_CHANNEL_2 ||
-    episodeUrl === LIVE_WEB_PLAYER_1 ||
-    episodeUrl === LIVE_WEB_PLAYER_2 ||
-    /watch-live-stream-bigg-boss/i.test(episodeUrl) ||
-    (/bigg-boss/i.test(episodeUrl) && /live/i.test(episodeUrl));
-
-  if (isBiggBossLive) {
-    const isCam2 = /live2channel/i.test(episodeUrl);
-    const cam1 = {
-      name: "Live Cam 1 • 1080p 60fps",
-      url: LIVE_CHANNEL_1,
-      isLive: true,
-      resolution: "1080p",
-      hostPortal: "Star Vijay 24/7 Feed",
-    };
-    const cam2 = {
-      name: "Live Cam 2 • High-Speed",
-      url: LIVE_CHANNEL_2,
-      isLive: true,
-      resolution: "1080p",
-      hostPortal: "Star Vijay Mirror 2",
-    };
-    const web1 = {
-      name: "Studio Player 1",
-      url: LIVE_WEB_PLAYER_1,
-      isLive: true,
-      resolution: "1080p",
-      hostPortal: "NamTamil Studio",
-    };
-    const web2 = {
-      name: "Studio Player 2",
-      url: LIVE_WEB_PLAYER_2,
-      isLive: true,
-      resolution: "720p",
-      hostPortal: "SpiritualLife Studio",
-    };
-    const list = isCam2 ? [cam2, cam1, web1, web2] : [cam1, cam2, web1, web2];
-    return res.status(200).json({ ok: true, sources: attachMirrorBadgesAndProxy(list) });
-  }
-
-  // 2. Direct .m3u8 / .mp4 passed directly
-  if (/\.(m3u8|mp4)(\?|$)/i.test(episodeUrl)) {
-    const directList = [
-      { name: "Server 1 • 1080p Full HD", url: episodeUrl, resolution: "1080p", hostPortal: "Direct CDN" },
-      { name: "Server 2 • Backup 1080p", url: VERIFIED_HLS_1080P_A, resolution: "1080p", hostPortal: "Mirror CDN" },
-    ];
-    return res.status(200).json({ ok: true, sources: attachMirrorBadgesAndProxy(directList) });
-  }
+async function resolveEpisodeSources(episodeUrl) {
+  let defaultReferer = "https://www.1tamilcrow.net/";
+  try {
+    if (/tamildhool\.tech/i.test(episodeUrl)) {
+      defaultReferer = "https://www.tamildhool.tech/";
+    } else if (/5movierulz/i.test(episodeUrl)) {
+      defaultReferer = `${new URL(episodeUrl).origin}/`;
+    }
+  } catch {}
 
   const prioritized = [];
-  const defaultReferer = /tamildhool\.tech/i.test(episodeUrl)
-    ? "https://www.tamildhool.tech/"
-    : /5movierulz/i.test(episodeUrl)
-    ? "https://www.5movierulz.green/"
-    : "https://www.1tamilcrow.net/";
+  let pageMeta = await fetchHtmlMeta(episodeUrl, defaultReferer, 5500);
+  let html = pageMeta.html;
+  let activeOriginReferer = defaultReferer;
+  try {
+    if (pageMeta.finalUrl) {
+      activeOriginReferer = `${new URL(pageMeta.finalUrl).origin}/`;
+    }
+  } catch {}
 
-  let html = await fetchHtml(episodeUrl, defaultReferer, 6000);
-
-  // If the URL is a category listing page (e.g. /category/... or show root URL), follow the first article link
+  // If the URL is a category listing page, follow the first article link
   const looksLikeCategoryListing =
     /\/category\//i.test(episodeUrl) ||
     /\/(?:celebrity-master-chef-tamil|super-singer-junior|neeya-naana|cooku-with-comali-s7|bigg-boss-tamil-season-10)\/?$/i.test(
@@ -334,8 +321,13 @@ module.exports = async function handler(req, res) {
   if (html && looksLikeCategoryListing) {
     const firstPostMatch = html.match(/<article[\s\S]*?<h[23][^>]*>\s*<a[^>]+href=["'](https?:\/\/[^"']+)["']/i);
     if (firstPostMatch && firstPostMatch[1] && firstPostMatch[1] !== episodeUrl) {
-      const postHtml = await fetchHtml(firstPostMatch[1].trim(), defaultReferer, 5500);
-      if (postHtml) html = postHtml;
+      const postMeta = await fetchHtmlMeta(firstPostMatch[1].trim(), activeOriginReferer, 5000);
+      if (postMeta.html) {
+        html = postMeta.html;
+        try {
+          if (postMeta.finalUrl) activeOriginReferer = `${new URL(postMeta.finalUrl).origin}/`;
+        } catch {}
+      }
     }
   }
 
@@ -415,7 +407,7 @@ module.exports = async function handler(req, res) {
 
       await Promise.all(
         vcdnUrls.map(async (vcdnUrl, idx) => {
-          const vcdnHtml = await fetchHtml(vcdnUrl, defaultReferer, 3600);
+          const vcdnHtml = await fetchHtml(vcdnUrl, activeOriginReferer, 3800);
           const srcMatch = vcdnHtml.match(/<source[^>]+src=["']([^"']+)["']/i);
           if (srcMatch && srcMatch[1]) {
             prioritized.push({
@@ -443,7 +435,7 @@ module.exports = async function handler(req, res) {
       await Promise.all(
         packedUrls.map(async (pUrl, idx) => {
           const hostName = /hglink/i.test(pUrl) ? "Streamwish" : "Filelions";
-          const pHtml = await fetchHtml(pUrl, defaultReferer, 2800);
+          const pHtml = await fetchHtml(pUrl, activeOriginReferer, 2800);
           const unpacked = unpackPackerScript(pHtml);
           if (unpacked) {
             prioritized.push({
@@ -549,9 +541,9 @@ module.exports = async function handler(req, res) {
     );
   }
 
-  // Cross-portal redundancy (mirrors MultiSourceEngine.kt):
-  // If a TamilDhool episode also exists on 1TamilCrow (e.g. Cooku with Comali S7 or Bigg Boss 10), add 1TamilCrow mirrors
-  if (/tamildhool\.tech/i.test(episodeUrl) && /cooku-with-comali|bigg-boss/i.test(episodeUrl)) {
+  // Cross-portal redundancy (only run if primary TamilDhool page yielded zero direct HLS streams)
+  const hasDirectHlsAlready = prioritized.some((p) => /\.(m3u8|mp4)/i.test(p.source?.url || ""));
+  if (!hasDirectHlsAlready && /tamildhool\.tech/i.test(episodeUrl) && /cooku-with-comali|bigg-boss/i.test(episodeUrl)) {
     const slug = episodeUrl.replace(/\/+$/, "").split("/").pop() || "";
     const datePart = (slug.match(/(\d{2}-\d{2}-\d{4})/) || [])[1] || "";
     const showKeyword = /cooku/i.test(slug)
@@ -564,12 +556,12 @@ module.exports = async function handler(req, res) {
       const wpJson = await fetchHtml(
         `https://www.1tamilcrow.net/wp-json/wp/v2/posts?search=${encodeURIComponent(searchQ)}&per_page=1`,
         "https://www.1tamilcrow.net/",
-        2600
+        2200
       );
       try {
         const posts = JSON.parse(wpJson);
         if (Array.isArray(posts) && posts[0]?.link) {
-          const crowHtml = await fetchHtml(posts[0].link, "https://www.1tamilcrow.net/", 3000);
+          const crowHtml = await fetchHtml(posts[0].link, "https://www.1tamilcrow.net/", 2500);
           const vMatch = crowHtml.match(/https?:\/\/player\.vimeo\.com\/video\/\d+[^"'\s]*/i);
           if (vMatch) {
             const vStreams = await extractVimeoStreams(vMatch[0].replace(/&amp;/g, "&"));
@@ -590,8 +582,6 @@ module.exports = async function handler(req, res) {
     }
   });
 
-  // Exact VijayTvRepository.kt line 1443 & MultiSourceEngine.kt line 299 fallback:
-  // Never fall back to Bigg Boss Live for VOD episodes!
   if (uniqueSources.length === 0) {
     uniqueSources.push(
       {
@@ -611,8 +601,97 @@ module.exports = async function handler(req, res) {
     );
   }
 
-  return res.status(200).json({
-    ok: true,
-    sources: attachMirrorBadgesAndProxy(uniqueSources),
-  });
+  return attachMirrorBadgesAndProxy(uniqueSources);
+}
+
+module.exports = async function handler(req, res) {
+  res.setHeader("Access-Control-Allow-Origin", "*");
+  res.setHeader("Access-Control-Allow-Methods", "GET,OPTIONS");
+  if (req.method === "OPTIONS") {
+    return res.status(200).end();
+  }
+
+  const episodeUrl = (req.query.url || "").trim();
+  if (!episodeUrl) {
+    return res.status(400).json({ ok: false, error: "Missing url parameter", sources: [] });
+  }
+
+  // 1. Explicit Bigg Boss 24/7 Live Stream
+  const isBiggBossLive =
+    episodeUrl === LIVE_CHANNEL_1 ||
+    episodeUrl === LIVE_CHANNEL_2 ||
+    episodeUrl === LIVE_WEB_PLAYER_1 ||
+    episodeUrl === LIVE_WEB_PLAYER_2 ||
+    /watch-live-stream-bigg-boss/i.test(episodeUrl) ||
+    (/bigg-boss/i.test(episodeUrl) && /live/i.test(episodeUrl));
+
+  if (isBiggBossLive) {
+    const isCam2 = /live2channel/i.test(episodeUrl);
+    const cam1 = {
+      name: "Live Cam 1 • 1080p 60fps",
+      url: LIVE_CHANNEL_1,
+      isLive: true,
+      resolution: "1080p",
+      hostPortal: "Star Vijay 24/7 Feed",
+    };
+    const cam2 = {
+      name: "Live Cam 2 • High-Speed",
+      url: LIVE_CHANNEL_2,
+      isLive: true,
+      resolution: "1080p",
+      hostPortal: "Star Vijay Mirror 2",
+    };
+    const web1 = {
+      name: "Studio Player 1",
+      url: LIVE_WEB_PLAYER_1,
+      isLive: true,
+      resolution: "1080p",
+      hostPortal: "NamTamil Studio",
+    };
+    const web2 = {
+      name: "Studio Player 2",
+      url: LIVE_WEB_PLAYER_2,
+      isLive: true,
+      resolution: "720p",
+      hostPortal: "SpiritualLife Studio",
+    };
+    const list = isCam2 ? [cam2, cam1, web1, web2] : [cam1, cam2, web1, web2];
+    res.setHeader("Cache-Control", "public, s-maxage=300");
+    return res.status(200).json({ ok: true, sources: attachMirrorBadgesAndProxy(list) });
+  }
+
+  // 2. Direct .m3u8 / .mp4 passed directly
+  if (/\.(m3u8|mp4)(\?|$)/i.test(episodeUrl)) {
+    const directList = [
+      { name: "Server 1 • 1080p Full HD", url: episodeUrl, resolution: "1080p", hostPortal: "Direct CDN" },
+      { name: "Server 2 • Backup 1080p", url: VERIFIED_HLS_1080P_A, resolution: "1080p", hostPortal: "Mirror CDN" },
+    ];
+    res.setHeader("Cache-Control", "public, s-maxage=300");
+    return res.status(200).json({ ok: true, sources: attachMirrorBadgesAndProxy(directList) });
+  }
+
+  // 3. Fast SWR Cache check
+  const now = Date.now();
+  const cached = STREAM_CACHE.get(episodeUrl);
+  if (cached && now - cached.ts < STREAM_CACHE_STALE_MS) {
+    res.setHeader("Cache-Control", "public, s-maxage=120, stale-while-revalidate=300");
+    res.setHeader("X-Cache", now - cached.ts < STREAM_CACHE_FRESH_MS ? "HIT" : "STALE");
+    if (now - cached.ts >= STREAM_CACHE_FRESH_MS && !cached.refreshing) {
+      cached.refreshing = true;
+      resolveEpisodeSources(episodeUrl)
+        .then((sources) => STREAM_CACHE.set(episodeUrl, { ts: Date.now(), sources }))
+        .catch(() => {})
+        .finally(() => {
+          const c = STREAM_CACHE.get(episodeUrl);
+          if (c) c.refreshing = false;
+        });
+    }
+    return res.status(200).json({ ok: true, sources: cached.sources });
+  }
+
+  const sources = await resolveEpisodeSources(episodeUrl);
+  STREAM_CACHE.set(episodeUrl, { ts: Date.now(), sources });
+  res.setHeader("Cache-Control", "public, s-maxage=120, stale-while-revalidate=300");
+  res.setHeader("X-Cache", "MISS");
+  return res.status(200).json({ ok: true, sources });
 };

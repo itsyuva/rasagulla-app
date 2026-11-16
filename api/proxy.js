@@ -98,10 +98,12 @@ module.exports = async function handler(req, res) {
           if (!trimmed) return line;
           if (trimmed.startsWith("#")) {
             return line.replace(/URI=["']([^"']+)["']/gi, (_, uriVal) => {
+              if (uriVal.startsWith("/api/proxy")) return `URI="${uriVal}"`;
               const absUri = new URL(uriVal, baseObj).toString();
               return `URI="/api/proxy?url=${encodeURIComponent(absUri)}"`;
             });
           }
+          if (trimmed.startsWith("/api/proxy")) return trimmed;
           const absLineUrl = new URL(trimmed, baseObj).toString();
           return `/api/proxy?url=${encodeURIComponent(absLineUrl)}`;
         })
@@ -123,12 +125,22 @@ module.exports = async function handler(req, res) {
         ) {
           buffer = buffer.subarray(offset);
           res.setHeader("Content-Type", "video/mp2t");
+          res.setHeader("Content-Length", String(buffer.length));
+          res.setHeader("Cache-Control", "public, max-age=3600");
           return res.status(200).send(buffer);
         }
       }
     }
 
+    const acceptRanges = upstream.headers.get("accept-ranges");
+    const contentRange = upstream.headers.get("content-range");
+    if (acceptRanges) res.setHeader("Accept-Ranges", acceptRanges);
+    if (contentRange) res.setHeader("Content-Range", contentRange);
     res.setHeader("Content-Type", contentType || "video/mp2t");
+    res.setHeader("Content-Length", String(buffer.length));
+    if (/ts|video|mp2t|octet-stream/i.test(contentType) || buffer[0] === 0x47) {
+      res.setHeader("Cache-Control", "public, max-age=3600");
+    }
     return res.status(upstream.status).send(buffer);
   } catch (err) {
     return res.status(502).send(`Proxy error: ${err.message || err}`);

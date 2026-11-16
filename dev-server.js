@@ -82,6 +82,11 @@ const server = http.createServer(async (req, res) => {
 
   const ext = path.extname(filePath).toLowerCase();
   res.setHeader("Content-Type", MIME_TYPES[ext] || "application/octet-stream");
+  if (ext === ".png" || ext === ".jpg" || ext === ".jpeg" || ext === ".webp") {
+    res.setHeader("Cache-Control", "public, max-age=31536000, immutable");
+  } else if (ext === ".css" || ext === ".js") {
+    res.setHeader("Cache-Control", "public, max-age=60");
+  }
   fs.createReadStream(filePath).pipe(res);
 });
 

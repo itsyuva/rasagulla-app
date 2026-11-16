@@ -7,14 +7,18 @@ const POSTERS = {
   biggBossLive:
     "https://www.1tamilcrow.net/wp-content/uploads/2026/09/bigg-boss-season-10-live-2026-768x432-1-420x237.jpg",
   masterchef:
-    "https://wsrv.nl/?url=https%3A%2F%2Fwww.tamildhool.tech%2Fwp-content%2Fuploads%2F2026%2F10%2Fchef.jpg",
+    "https://wsrv.nl/?url=https%3A%2F%2Fwww.tamildhool.tech%2Fwp-content%2Fuploads%2F2026%2F10%2Fchef.jpg&w=540&q=82",
   cooku:
-    "https://wsrv.nl/?url=https%3A%2F%2Fwww.tamildhool.tech%2Fwp-content%2Fuploads%2F2026%2F04%2Fcwc7.jpg",
+    "https://wsrv.nl/?url=https%3A%2F%2Fwww.tamildhool.tech%2Fwp-content%2Fuploads%2F2026%2F04%2Fcwc7.jpg&w=540&q=82",
   superSinger:
-    "https://wsrv.nl/?url=https%3A%2F%2Fwww.tamildhool.tech%2Fwp-content%2Fuploads%2F2026%2F05%2Fssj11.jpg",
+    "https://wsrv.nl/?url=https%3A%2F%2Fwww.tamildhool.tech%2Fwp-content%2Fuploads%2F2026%2F05%2Fssj11.jpg&w=540&q=82",
   neeyaNaana:
-    "https://wsrv.nl/?url=https%3A%2F%2Fwww.tamildhool.tech%2Fwp-content%2Fuploads%2F2025%2F07%2Fnn.jpg",
+    "https://wsrv.nl/?url=https%3A%2F%2Fwww.tamildhool.tech%2Fwp-content%2Fuploads%2F2025%2F07%2Fnn.jpg&w=540&q=82",
 };
+
+const CATALOG_CACHE = new Map();
+const CACHE_FRESH_MS = 180 * 1000; // 3 min fresh
+const CACHE_STALE_MS = 15 * 60 * 1000; // 15 min stale-while-revalidate
 
 // Exact Catalog Shows & Multi-Season Structure from VijayTvRepository.kt (lines 91-174)
 const CATALOG_SHOWS = [
@@ -235,7 +239,7 @@ function sanitizeImageUrl(rawImg = "", defaultPoster = POSTERS.biggBoss) {
   if (!trimmed || trimmed.startsWith("data:")) return defaultPoster;
   if (trimmed.startsWith("https://wsrv.nl/")) return trimmed;
   if (/tamildhool\.tech/i.test(trimmed)) {
-    return `https://wsrv.nl/?url=${encodeURIComponent(trimmed)}`;
+    return `https://wsrv.nl/?url=${encodeURIComponent(trimmed)}&w=540&q=82`;
   }
   return trimmed;
 }
@@ -327,11 +331,36 @@ function enrichMetadata(rawTitle = "", showTitle = "", isMovie = false, posterUr
   };
 }
 
+function raceValidResults(promises) {
+  return new Promise((resolve) => {
+    let pending = promises.length;
+    let settled = false;
+    if (pending === 0) return resolve(null);
+    promises.forEach((p) => {
+      Promise.resolve(p)
+        .then((val) => {
+          if (!settled && val && val.html) {
+            settled = true;
+            resolve(val);
+          }
+        })
+        .catch(() => {})
+        .finally(() => {
+          pending -= 1;
+          if (!settled && pending === 0) {
+            settled = true;
+            resolve(null);
+          }
+        });
+    });
+  });
+}
+
 /**
- * Concurrently attempts direct HTTP fetch and r.jina.ai raw-HTML relay for tamildhool.tech
- * so Cloudflare datacenter blocks on Vercel never prevent live 2026 TamilDhool scraping.
+ * Races direct HTTP fetch and r.jina.ai raw-HTML relay for tamildhool.tech
+ * so Cloudflare datacenter blocks or tarpits resolve on whichever responds first.
  */
-async function fetchHtmlWithTimeout(url, referer, timeoutMs = 6500) {
+async function fetchHtmlWithTimeout(url, referer, timeoutMs = 5500) {
   const isTamilDhool = /tamildhool\.tech/i.test(url);
 
   const directPromise = (async () => {
@@ -350,7 +379,9 @@ async function fetchHtmlWithTimeout(url, referer, timeoutMs = 6500) {
       });
       if (!resp.ok) return null;
       const text = await resp.text();
-      if (!text || text.includes("<title>Just a moment")) return null;
+      if (!text || text.includes("<title>Just a moment") || text.includes("cf-browser-verification")) {
+        return null;
+      }
       return { html: text, finalUrl: resp.url || url };
     } catch {
       return null;
@@ -387,10 +418,8 @@ async function fetchHtmlWithTimeout(url, referer, timeoutMs = 6500) {
     }
   })();
 
-  const directRes = await directPromise;
-  if (directRes && directRes.html) return directRes;
-  const jinaRes = await jinaPromise;
-  return jinaRes || { html: "", finalUrl: url };
+  const winner = await raceValidResults([directPromise, jinaPromise]);
+  return winner || { html: "", finalUrl: url };
 }
 
 function normalizeEpisodeItem(ep, idx = 0) {
@@ -618,63 +647,35 @@ function getInitialEpisodesForUrl(showUrl = "") {
   return bbItems.map((it, idx) => normalizeEpisodeItem(it, idx));
 }
 
-// Exact 1:1 Port of VijayTvRepository.getInitialMovies() (lines 428-497)
+// Initial fallback movies using active 2026 releases
 function getInitialMovies() {
   const list = [
     [
-      "Thaai Kizhavi (2026) HDRip Tamil Full Movie",
-      "https://www.5movierulz.green/thaai-kizhavi-2026-hdrip-tamil-full-movie-watch-online-free/",
+      "Maaya Oviyan (2026) HDRip [Tamil]",
+      "https://www.5movierulz.dentist/maaya-oviyan-2026-hdrip-tamil-7765.html",
       "2026 • HDRip",
-      "https://www.5movierulz.green/uploads/Thaai-Kizhavi-Tamil.jpg",
+      "https://www.5movierulz.dentist/uploads/Maaya-Oviyan-Tamil.jpg",
       "HDRip 1080p",
     ],
     [
-      "Youth (2026) DVDScr Tamil Full Movie",
-      "https://www.5movierulz.green/youth-2026-dvdscr-tamil-full-movie-watch-online-free/",
-      "2026 • DVDScr",
-      "https://www.5movierulz.green/uploads/Youth-Tamil.jpg",
-      "DVDScr HD",
-    ],
-    [
-      "Kara (2026) DVDScr Tamil Full Movie",
-      "https://www.5movierulz.green/kara-2026-dvdscr-tamil-full-movie-watch-online-free/",
-      "2026 • DVDScr",
-      "https://www.5movierulz.green/uploads/Kara-Tamil.jpg",
-      "DVDScr HD",
-    ],
-    [
-      "Make-Up (2026) HDRip Tamil Full Movie",
-      "https://www.5movierulz.green/make-up-2026-hdrip-tamil-full-movie-watch-online-free/",
+      "Ranabaali (2026) HDRip [Tamil]",
+      "https://www.5movierulz.dentist/ranabaali-2026-hdrip-tamil-7763.html",
       "2026 • HDRip",
-      "https://www.5movierulz.green/uploads/Make-Up-Tamil.jpg",
+      "https://www.5movierulz.dentist/uploads/Ranabaali-Tamil.jpg",
       "HDRip 1080p",
     ],
     [
-      "Kaakaa (2026) HDRip Tamil Full Movie",
-      "https://www.5movierulz.green/kaakaa-2026-hdrip-tamil-full-movie-watch-online-free/",
+      "Sandakari (2026) HDRip [Tamil]",
+      "https://www.5movierulz.dentist/sandakari-2026-hdrip-tamil-7757.html",
       "2026 • HDRip",
-      "https://www.5movierulz.green/uploads/Kaakaa-Tamil.jpg",
+      "https://www.5movierulz.dentist/uploads/Sandakari-Tamil.jpg",
       "HDRip 1080p",
     ],
     [
-      "Oh Butterfly (2026) HDRip Tamil Full Movie",
-      "https://www.5movierulz.green/oh-butterfly-2026-hdrip-tamil-full-movie-watch-online-free/",
+      "Adaikalam (2026) HDRip [Tamil]",
+      "https://www.5movierulz.dentist/adaikalam-2026-hdrip-tamil-7736.html",
       "2026 • HDRip",
-      "https://www.5movierulz.green/uploads/Oh-Butterfly-Tamil.jpg",
-      "HDRip 1080p",
-    ],
-    [
-      "Gilli Mappillai (2026) HDRip Tamil Full Movie",
-      "https://www.5movierulz.green/gilli-mappillai-2026-hdrip-tamil-full-movie-watch-online-free/",
-      "2026 • HDRip",
-      "https://www.5movierulz.green/uploads/Gilli-Mappillai-Tamil.jpg",
-      "HDRip 1080p",
-    ],
-    [
-      "Mustafa Mustafa (2026) HDRip Tamil Full Movie",
-      "https://www.5movierulz.green/mustafa-mustafa-2026-hdrip-tamil-full-movie-watch-online-free/",
-      "2026 • HDRip",
-      "https://www.5movierulz.green/uploads/Mustafa-Mustafa-Tamil.jpg",
+      "https://www.5movierulz.dentist/uploads/Adaikalam-Tamil.jpg",
       "HDRip 1080p",
     ],
   ];
@@ -791,7 +792,8 @@ function parseEpisodesFromHtml(html, pageUrl, targetUrl) {
     if (!rawTitle) continue;
 
     const rawImg =
-      (block.match(/<img[^>]+data-src=["']([^"']+)["']/i) || [])[1] ||
+      (block.match(/<img[^>]+data-lazy-src=["'](https?:\/\/[^"']+)["']/i) || [])[1] ||
+      (block.match(/<img[^>]+data-src=["'](https?:\/\/[^"']+)["']/i) || [])[1] ||
       (block.match(/<img[^>]+src=["'](https?:\/\/[^"']+)["']/i) || [])[1] ||
       defaultPoster;
 
@@ -880,9 +882,9 @@ async function scrapeShowCategory(targetUrl) {
     );
   }
 
-  htmlPages.forEach(({ html, finalUrl }) => {
-    if (!html) return;
-    const parsed = parseEpisodesFromHtml(html, finalUrl, targetUrl);
+  htmlPages.forEach((page) => {
+    if (!page || !page.html) return;
+    const parsed = parseEpisodesFromHtml(page.html, page.finalUrl || targetUrl, targetUrl);
     parsed.forEach((ep, i) => {
       if (!seen.has(ep.url)) {
         seen.add(ep.url);
@@ -920,9 +922,9 @@ async function scrapeMoviesCatalog(baseUrl = "https://www.5movierulz.green/categ
 
   const allMovies = [];
   const seen = new Set();
-  pages.forEach(({ html, finalUrl }) => {
-    if (!html) return;
-    const parsed = parseMoviesFromHtml(html, finalUrl);
+  pages.forEach((page) => {
+    if (!page || !page.html) return;
+    const parsed = parseMoviesFromHtml(page.html, page.finalUrl || baseUrl);
     parsed.forEach((m, idx) => {
       if (!seen.has(m.url)) {
         seen.add(m.url);
@@ -934,6 +936,34 @@ async function scrapeMoviesCatalog(baseUrl = "https://www.5movierulz.green/categ
   return allMovies.length > 0 ? allMovies : getInitialMovies();
 }
 
+async function buildCatalogPayload(rawUrlParam, reqType) {
+  if (!rawUrlParam) {
+    const showSources = CATALOG_SHOWS.map((s) => s.categoryUrl);
+    const [showLists, movies] = await Promise.all([
+      Promise.all(showSources.map((u) => scrapeShowCategory(u))),
+      scrapeMoviesCatalog(),
+    ]);
+    const episodes = showLists.flat();
+    return {
+      ok: true,
+      shows: CATALOG_SHOWS,
+      episodes,
+      movies,
+      items: episodes,
+    };
+  }
+
+  const isMovieRequest =
+    /5movierulz|tamil-movies|tamil-featured/i.test(rawUrlParam) || reqType === "movies";
+  if (isMovieRequest) {
+    const allMovies = await scrapeMoviesCatalog(rawUrlParam);
+    return { ok: true, items: allMovies, movies: allMovies };
+  }
+
+  const episodes = await scrapeShowCategory(rawUrlParam);
+  return { ok: true, items: episodes, episodes };
+}
+
 module.exports = async function handler(req, res) {
   res.setHeader("Access-Control-Allow-Origin", "*");
   res.setHeader("Access-Control-Allow-Methods", "GET,OPTIONS");
@@ -942,36 +972,36 @@ module.exports = async function handler(req, res) {
   }
 
   const rawUrlParam = (req.query.url || "").trim();
+  const reqType = (req.query.type || "").trim();
+  const forceRefresh = req.query.refresh === "1" || req.query.refresh === "true";
+  const cacheKey = `${rawUrlParam || "__ALL__"}::${reqType}`;
+  const now = Date.now();
+
+  if (!forceRefresh) {
+    const cached = CATALOG_CACHE.get(cacheKey);
+    if (cached && now - cached.ts < CACHE_STALE_MS) {
+      res.setHeader("Cache-Control", "public, s-maxage=180, stale-while-revalidate=600");
+      res.setHeader("X-Cache", now - cached.ts < CACHE_FRESH_MS ? "HIT" : "STALE");
+      if (now - cached.ts >= CACHE_FRESH_MS && !cached.refreshing) {
+        cached.refreshing = true;
+        buildCatalogPayload(rawUrlParam, reqType)
+          .then((payload) => CATALOG_CACHE.set(cacheKey, { ts: Date.now(), payload }))
+          .catch(() => {})
+          .finally(() => {
+            const c = CATALOG_CACHE.get(cacheKey);
+            if (c) c.refreshing = false;
+          });
+      }
+      return res.status(200).json(cached.payload);
+    }
+  }
 
   try {
-    // Bulk catalog request (used by Web App startup & Refresh button)
-    // Uses the exact 5 show URLs from VijayTvRepository.kt (lines 91-174)
-    if (!rawUrlParam) {
-      const showSources = CATALOG_SHOWS.map((s) => s.categoryUrl);
-
-      const [showLists, movies] = await Promise.all([
-        Promise.all(showSources.map((u) => scrapeShowCategory(u))),
-        scrapeMoviesCatalog(),
-      ]);
-
-      const episodes = showLists.flat();
-      return res.status(200).json({
-        ok: true,
-        shows: CATALOG_SHOWS,
-        episodes,
-        movies,
-        items: episodes,
-      });
-    }
-
-    const isMovieRequest = /5movierulz|tamil-movies|tamil-featured/i.test(rawUrlParam) || req.query.type === "movies";
-    if (isMovieRequest) {
-      const allMovies = await scrapeMoviesCatalog(rawUrlParam);
-      return res.status(200).json({ ok: true, items: allMovies, movies: allMovies });
-    }
-
-    const episodes = await scrapeShowCategory(rawUrlParam);
-    return res.status(200).json({ ok: true, items: episodes, episodes });
+    const payload = await buildCatalogPayload(rawUrlParam, reqType);
+    CATALOG_CACHE.set(cacheKey, { ts: Date.now(), payload });
+    res.setHeader("Cache-Control", "public, s-maxage=180, stale-while-revalidate=600");
+    res.setHeader("X-Cache", "MISS");
+    return res.status(200).json(payload);
   } catch (err) {
     const fallbackEpisodes = rawUrlParam
       ? getInitialEpisodesForUrl(rawUrlParam)

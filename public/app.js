@@ -107,7 +107,7 @@ const SHOW_METADATA = {
     shortTitle: "MasterChef Tamil",
     tagline: "Culinary Battles • High-Heat Kitchen Drama",
     badge: "Sony Vizha • 2026 HD",
-    poster: "https://wsrv.nl/?url=https%3A%2F%2Fwww.tamildhool.tech%2Fwp-content%2Fuploads%2F2026%2F10%2Fchef.jpg",
+    poster: "https://wsrv.nl/?url=https%3A%2F%2Fwww.tamildhool.tech%2Fwp-content%2Fuploads%2F2026%2F10%2Fchef.jpg&w=540&q=82",
     accent: "#ff8a00",
     seasons: [
       { id: "cmc_s1", label: "Season 1 (2026 Latest)", categoryUrl: "https://www.tamildhool.tech/sony-vizha/sony-vizha-show/celebrity-master-chef-tamil/", year: "2026" },
@@ -119,7 +119,7 @@ const SHOW_METADATA = {
     shortTitle: "Cooku with Comali",
     tagline: "Pugazh & Comalis • Non-Stop Kitchen Comedy",
     badge: "Vijay TV • Season 7 (2026)",
-    poster: "https://wsrv.nl/?url=https%3A%2F%2Fwww.tamildhool.tech%2Fwp-content%2Fuploads%2F2026%2F04%2Fcwc7.jpg",
+    poster: "https://wsrv.nl/?url=https%3A%2F%2Fwww.tamildhool.tech%2Fwp-content%2Fuploads%2F2026%2F04%2Fcwc7.jpg&w=540&q=82",
     accent: "#ffc857",
     seasons: [
       { id: "cwc_s7", label: "Season 7 (2026 Latest)", categoryUrl: "https://www.tamildhool.tech/vijay-tv/vijay-tv-show/cooku-with-comali-s7/", year: "2026" },
@@ -135,7 +135,7 @@ const SHOW_METADATA = {
     shortTitle: "Super Singer",
     tagline: "Anirudh & Legends • Musical Showdown",
     badge: "Vijay TV • Jr 11 (2026)",
-    poster: "https://wsrv.nl/?url=https%3A%2F%2Fwww.tamildhool.tech%2Fwp-content%2Fuploads%2F2026%2F05%2Fssj11.jpg",
+    poster: "https://wsrv.nl/?url=https%3A%2F%2Fwww.tamildhool.tech%2Fwp-content%2Fuploads%2F2026%2F05%2Fssj11.jpg&w=540&q=82",
     accent: "#00e5ff",
     seasons: [
       { id: "ssj_11", label: "Super Singer Jr 11 (2026 Latest)", categoryUrl: "https://www.tamildhool.tech/vijay-tv/vijay-tv-show/super-singer-junior/", year: "2026" },
@@ -151,7 +151,7 @@ const SHOW_METADATA = {
     shortTitle: "Neeya Naana",
     tagline: "Gopinath • Unfiltered Social Debates",
     badge: "Vijay TV • 2026 Debates",
-    poster: "https://wsrv.nl/?url=https%3A%2F%2Fwww.tamildhool.tech%2Fwp-content%2Fuploads%2F2025%2F07%2Fnn.jpg",
+    poster: "https://wsrv.nl/?url=https%3A%2F%2Fwww.tamildhool.tech%2Fwp-content%2Fuploads%2F2025%2F07%2Fnn.jpg&w=540&q=82",
     accent: "#b388ff",
     seasons: [
       { id: "nn_2026", label: "2026 Latest Debates", categoryUrl: "https://www.tamildhool.tech/vijay-tv/vijay-tv-show/neeya-naana/", year: "2026" },
@@ -380,73 +380,48 @@ const INITIAL_EPISODES = [
   },
 ];
 
-// Exact 2026 Initial Movies from VijayTvRepository.kt (lines 428-497)
+// Initial active 2026 Tamil movies (replaced immediately by live /api/catalog sync)
 const INITIAL_MOVIES = [
   {
-    id: "mov-thaai-kizhavi",
-    title: "Thaai Kizhavi (2026) HDRip Tamil Full Movie",
+    id: "mov-maaya-oviyan",
+    title: "Maaya Oviyan (2026) HDRip [Tamil]",
     languageAndYear: "2026 • HDRip",
     qualityBadge: "HDRip 1080p",
-    posterUrl: "https://www.5movierulz.green/uploads/Thaai-Kizhavi-Tamil.jpg",
-    moviePageUrl: "https://www.5movierulz.green/thaai-kizhavi-2026-hdrip-tamil-full-movie-watch-online-free/",
+    posterUrl: "https://www.5movierulz.dentist/uploads/Maaya-Oviyan-Tamil.jpg",
+    moviePageUrl: "https://www.5movierulz.dentist/maaya-oviyan-2026-hdrip-tamil-7765.html",
   },
   {
-    id: "mov-youth-2026",
-    title: "Youth (2026) DVDScr Tamil Full Movie",
-    languageAndYear: "2026 • DVDScr",
-    qualityBadge: "DVDScr HD",
-    posterUrl: "https://www.5movierulz.green/uploads/Youth-Tamil.jpg",
-    moviePageUrl: "https://www.5movierulz.green/youth-2026-dvdscr-tamil-full-movie-watch-online-free/",
-  },
-  {
-    id: "mov-kara-2026",
-    title: "Kara (2026) DVDScr Tamil Full Movie",
-    languageAndYear: "2026 • DVDScr",
-    qualityBadge: "DVDScr HD",
-    posterUrl: "https://www.5movierulz.green/uploads/Kara-Tamil.jpg",
-    moviePageUrl: "https://www.5movierulz.green/kara-2026-dvdscr-tamil-full-movie-watch-online-free/",
-  },
-  {
-    id: "mov-makeup-2026",
-    title: "Make-Up (2026) HDRip Tamil Full Movie",
+    id: "mov-ranabaali",
+    title: "Ranabaali (2026) HDRip [Tamil]",
     languageAndYear: "2026 • HDRip",
     qualityBadge: "HDRip 1080p",
-    posterUrl: "https://www.5movierulz.green/uploads/Make-Up-Tamil.jpg",
-    moviePageUrl: "https://www.5movierulz.green/make-up-2026-hdrip-tamil-full-movie-watch-online-free/",
+    posterUrl: "https://www.5movierulz.dentist/uploads/Ranabaali-Tamil.jpg",
+    moviePageUrl: "https://www.5movierulz.dentist/ranabaali-2026-hdrip-tamil-7763.html",
   },
   {
-    id: "mov-kaakaa-2026",
-    title: "Kaakaa (2026) HDRip Tamil Full Movie",
+    id: "mov-sandakari",
+    title: "Sandakari (2026) HDRip [Tamil]",
     languageAndYear: "2026 • HDRip",
     qualityBadge: "HDRip 1080p",
-    posterUrl: "https://www.5movierulz.green/uploads/Kaakaa-Tamil.jpg",
-    moviePageUrl: "https://www.5movierulz.green/kaakaa-2026-hdrip-tamil-full-movie-watch-online-free/",
+    posterUrl: "https://www.5movierulz.dentist/uploads/Sandakari-Tamil.jpg",
+    moviePageUrl: "https://www.5movierulz.dentist/sandakari-2026-hdrip-tamil-7757.html",
   },
   {
-    id: "mov-oh-butterfly",
-    title: "Oh Butterfly (2026) HDRip Tamil Full Movie",
+    id: "mov-adaikalam",
+    title: "Adaikalam (2026) HDRip [Tamil]",
     languageAndYear: "2026 • HDRip",
     qualityBadge: "HDRip 1080p",
-    posterUrl: "https://www.5movierulz.green/uploads/Oh-Butterfly-Tamil.jpg",
-    moviePageUrl: "https://www.5movierulz.green/oh-butterfly-2026-hdrip-tamil-full-movie-watch-online-free/",
-  },
-  {
-    id: "mov-gilli-mappillai",
-    title: "Gilli Mappillai (2026) HDRip Tamil Full Movie",
-    languageAndYear: "2026 • HDRip",
-    qualityBadge: "HDRip 1080p",
-    posterUrl: "https://www.5movierulz.green/uploads/Gilli-Mappillai-Tamil.jpg",
-    moviePageUrl: "https://www.5movierulz.green/gilli-mappillai-2026-hdrip-tamil-full-movie-watch-online-free/",
-  },
-  {
-    id: "mov-mustafa-mustafa",
-    title: "Mustafa Mustafa (2026) HDRip Tamil Full Movie",
-    languageAndYear: "2026 • HDRip",
-    qualityBadge: "HDRip 1080p",
-    posterUrl: "https://www.5movierulz.green/uploads/Mustafa-Mustafa-Tamil.jpg",
-    moviePageUrl: "https://www.5movierulz.green/mustafa-mustafa-2026-hdrip-tamil-full-movie-watch-online-free/",
+    posterUrl: "https://www.5movierulz.dentist/uploads/Adaikalam-Tamil.jpg",
+    moviePageUrl: "https://www.5movierulz.dentist/adaikalam-2026-hdrip-tamil-7736.html",
   },
 ];
+
+// Client-Side Stream Cache + Smart Hover/Focus Prefetch (for instant <100ms playback)
+const STREAM_PREFETCH_CACHE = new Map();
+const STREAM_INFLIGHT = new Map();
+const STREAM_CACHE_TTL_MS = 120 * 1000;
+let prefetchHoverTimer = null;
+let lastDpadMoveTs = 0;
 
 // Application State
 const state = {
@@ -469,6 +444,8 @@ const state = {
   rowFocusMemory: {},
   lastMainStageFocusId: "hero-primary-btn",
   lastLaunchedCardFocusId: "hero-primary-btn",
+  modalHistoryDepth: 0,
+  ignoreNextPopstate: false,
   player: {
     open: false,
     episode: null,
@@ -480,6 +457,8 @@ const state = {
     isLive: false,
     currentTime: 0,
     duration: 0,
+    lastRenderedSec: -1,
+    hlsRecoveryAttempts: 0,
     selectedQuality: "1080p",
     useProxy: false,
     fitCover: false,
@@ -487,6 +466,7 @@ const state = {
     hlsInstance: null,
     hudTimer: null,
     progressInterval: null,
+    unmuteAbort: null,
   },
 };
 
@@ -618,18 +598,65 @@ function formatTime(sec) {
   return `${mins}:${String(secs).padStart(2, "0")}`;
 }
 
+function resolveStreamWithCache(targetUrl, title = "") {
+  if (!targetUrl) return Promise.resolve([]);
+  const now = Date.now();
+  const cached = STREAM_PREFETCH_CACHE.get(targetUrl);
+  if (cached && now - cached.ts < STREAM_CACHE_TTL_MS) {
+    return Promise.resolve(cached.sources);
+  }
+  if (STREAM_INFLIGHT.has(targetUrl)) {
+    return STREAM_INFLIGHT.get(targetUrl);
+  }
+  const q = new URLSearchParams({ url: targetUrl, title });
+  const reqPromise = fetch(`/api/stream?${q.toString()}`)
+    .then((r) => r.json())
+    .then((data) => {
+      const sources = Array.isArray(data.sources) ? data.sources : [];
+      if (sources.length > 0) {
+        STREAM_PREFETCH_CACHE.set(targetUrl, { ts: Date.now(), sources });
+      }
+      return sources;
+    })
+    .catch(() => [])
+    .finally(() => {
+      STREAM_INFLIGHT.delete(targetUrl);
+    });
+  STREAM_INFLIGHT.set(targetUrl, reqPromise);
+  return reqPromise;
+}
+
+function scheduleStreamPrefetchForEl(el) {
+  clearTimeout(prefetchHoverTimer);
+  const mediaUrl = el?.getAttribute?.("data-prefetch-url");
+  if (!mediaUrl || /\.(m3u8|mp4)(\?|$)/i.test(mediaUrl)) return;
+  prefetchHoverTimer = setTimeout(() => {
+    resolveStreamWithCache(mediaUrl, el.getAttribute("data-prefetch-title") || "").catch(() => {});
+  }, 260);
+}
+
 // Fetch Live Catalog from Serverless API
-async function fetchLiveCatalog(silent = false) {
+async function fetchLiveCatalog(silent = false, forceRefresh = false) {
   if (!silent) {
     state.loadingCatalog = true;
     renderApp();
   }
   try {
-    const res = await fetch("/api/catalog");
+    const endpoint = forceRefresh ? "/api/catalog?refresh=1" : "/api/catalog";
+    const res = await fetch(endpoint);
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     const data = await res.json();
     if (Array.isArray(data.episodes) && data.episodes.length > 0) {
-      state.episodes = data.episodes;
+      if (state.seasonEpisodes && state.seasonEpisodes.length > 0) {
+        const merged = [...data.episodes];
+        const ids = new Set(merged.map((e) => e.id));
+        state.seasonEpisodes.forEach((se) => {
+          if (!ids.has(se.id)) merged.push(se);
+        });
+        state.episodes = merged;
+      } else {
+        state.episodes = data.episodes;
+      }
     }
     if (Array.isArray(data.movies) && data.movies.length > 0) {
       state.movies = data.movies;
@@ -641,7 +668,11 @@ async function fetchLiveCatalog(silent = false) {
     console.warn("Catalog sync fallback:", err);
   } finally {
     state.loadingCatalog = false;
+    const prevScrollY = window.scrollY;
     renderApp();
+    if (silent && prevScrollY > 0) {
+      window.scrollTo(0, prevScrollY);
+    }
   }
 }
 
@@ -669,16 +700,23 @@ function applyTvFocus(el, shouldScroll = false) {
     }
   }
 
+  scheduleStreamPrefetchForEl(el);
+
   if (shouldScroll) {
+    const now = Date.now();
+    const isRapidHold = now - lastDpadMoveTs < 140;
+    lastDpadMoveTs = now;
+    const scrollBehavior = isRapidHold ? "auto" : "smooth";
+
     // Smoothly center inside any horizontal scroll rail
     const rail = el.closest(".horizontal-rail, .show-pills-bar, .player-scroll-strip");
     if (rail) {
       const elRect = el.getBoundingClientRect();
       const railRect = rail.getBoundingClientRect();
       const offset = elRect.left - railRect.left - railRect.width / 2 + elRect.width / 2;
-      rail.scrollBy({ left: offset, behavior: "smooth" });
+      rail.scrollBy({ left: offset, behavior: scrollBehavior });
     }
-    el.scrollIntoView({ block: "nearest", inline: "nearest", behavior: "smooth" });
+    el.scrollIntoView({ block: "nearest", inline: "nearest", behavior: scrollBehavior });
   }
 }
 
@@ -805,13 +843,13 @@ function renderLeftRail() {
 }
 
 function renderSleekTopBar() {
-  const topTabs = [
-    { id: "home", label: "Home", icon: ICONS.home },
-    { id: "shows", label: "TV Shows", icon: ICONS.tv },
-    { id: "movies", label: "Movies (1080p)", icon: ICONS.film },
-    { id: "live", label: "24/7 Live", icon: ICONS.live },
-    { id: "mylist", label: "My List", icon: ICONS.bookmark },
-  ];
+  const tabTitles = {
+    home: "Featured Hub • Bigg Boss 10, MasterChef & Movies",
+    shows: `Shows & Seasons • ${state.selectedShow}`,
+    movies: "Latest 2026 Tamil Blockbusters (1080p HD)",
+    live: "24/7 Live Star Vijay Broadcast Feeds",
+    mylist: `My Saved List (${state.myList.length}) & History`,
+  };
 
   return `
     <header class="sleek-top-bar">
@@ -820,6 +858,7 @@ function renderSleekTopBar() {
           <img
             src="/assets/cutouts/img_rasagulla_icon.png"
             alt=""
+            decoding="async"
             onerror="if(!this.dataset.fb){this.dataset.fb='1';this.src='/api/cutout?file=img_rasagulla_icon.png';}"
           />
         </div>
@@ -829,23 +868,9 @@ function renderSleekTopBar() {
         </div>
       </div>
 
-      <div class="tv-top-nav-pills" role=" navigation" aria-label="Quick Category Tabs">
-        ${topTabs
-          .map(
-            (t) => `
-          <button
-            class="tv-top-tab-btn ${state.activeTab === t.id ? "active" : ""}"
-            data-focusable
-            data-focus-row="row-top-bar"
-            data-focus-id="top-tab-${t.id}"
-            onclick="window.__switchTab('${t.id}')"
-          >
-            ${t.icon}
-            <span>${t.label}</span>
-          </button>
-        `
-          )
-          .join("")}
+      <div class="tv-top-breadcrumb">
+        <span class="tv-top-kicker">4K STREAM</span>
+        <span class="tv-top-title">${escapeHtml(tabTitles[state.activeTab] || tabTitles.home)}</span>
       </div>
 
       <div class="top-bar-actions">
@@ -901,6 +926,7 @@ function renderClusterPortalHero() {
   return `
     <section class="cluster-portal-stage" aria-label="Featured Shows & Characters">
       <div
+        id="hero-radial-glow"
         class="cluster-radial-glow"
         style="background: radial-gradient(circle at ${Math.round(
           focusedChar.targetFractionX * 100
@@ -912,7 +938,7 @@ function renderClusterPortalHero() {
           ${ICONS.sparkle}
           <span>D-Pad Left / Right or Click Character to Switch Show</span>
         </span>
-        <div class="cluster-dots">
+        <div class="cluster-dots" id="hero-dots">
           ${HERO_CHARACTERS.map(
             (_c, idx) =>
               `<span class="cluster-dot ${idx === state.heroIndex ? "active" : ""}"></span>`
@@ -920,10 +946,10 @@ function renderClusterPortalHero() {
         </div>
       </div>
 
-      <div class="cluster-hud-header" style="left: ${hudLeftPct}%;">
+      <div id="hero-hud-header" class="cluster-hud-header" style="left: ${hudLeftPct}%;">
         <div>
-          <div class="cluster-hud-title">${escapeHtml(focusedChar.title)}</div>
-          <div class="cluster-hud-sub" style="color: ${focusedChar.accentHex};">
+          <div id="hero-hud-title" class="cluster-hud-title">${escapeHtml(focusedChar.title)}</div>
+          <div id="hero-hud-sub" class="cluster-hud-sub" style="color: ${focusedChar.accentHex};">
             ${escapeHtml(focusedChar.subtitle)}
           </div>
         </div>
@@ -937,6 +963,7 @@ function renderClusterPortalHero() {
           const fileName = char.cutoutUrl.split("/").pop();
           return `
             <div
+              id="hero-cutout-${idx}"
               class="cluster-cutout-node ${isFocused ? "focused" : "inactive"}"
               style="left: ${(char.targetFractionX * 100).toFixed(1)}%; z-index: ${zIdx};"
               onclick="window.__selectHeroChar(${idx}, false)"
@@ -946,6 +973,7 @@ function renderClusterPortalHero() {
               <img
                 src="${char.cutoutUrl}"
                 alt=""
+                decoding="async"
                 draggable="false"
                 onerror="if(!this.dataset.fb){this.dataset.fb='1';this.src='/api/cutout?file=${fileName}';}"
               />
@@ -979,7 +1007,7 @@ function renderClusterPortalHero() {
             onclick="window.__playHeroFeatured()"
           >
             ${ICONS.play}
-            <span>${escapeHtml(primaryLabel)}</span>
+            <span id="hero-primary-label">${escapeHtml(primaryLabel)}</span>
           </button>
 
           <button
@@ -1009,6 +1037,62 @@ function renderClusterPortalHero() {
       </div>
     </section>
   `;
+}
+
+function updateHeroStageInPlace() {
+  const focusedChar = HERO_CHARACTERS[state.heroIndex] || HERO_CHARACTERS[3];
+  const hudLeftPct = Math.min(60, Math.max(6, Math.round(focusedChar.targetFractionX * 100 - 12)));
+  const primaryLabel =
+    focusedChar.targetTab === "movies"
+      ? "Browse Tamil Movies"
+      : focusedChar.targetTab === "shows"
+      ? "Open All Shows Hub"
+      : `Watch ${focusedChar.title}`;
+
+  const glow = document.getElementById("hero-radial-glow");
+  if (glow) {
+    glow.style.background = `radial-gradient(circle at ${Math.round(
+      focusedChar.targetFractionX * 100
+    )}% 58%, ${focusedChar.accentHex}55 0%, ${focusedChar.accentHex}1c 38%, transparent 74%)`;
+  }
+  const hudHdr = document.getElementById("hero-hud-header");
+  if (hudHdr) hudHdr.style.left = `${hudLeftPct}%`;
+  const hudTitle = document.getElementById("hero-hud-title");
+  if (hudTitle) hudTitle.textContent = focusedChar.title;
+  const hudSub = document.getElementById("hero-hud-sub");
+  if (hudSub) {
+    hudSub.textContent = focusedChar.subtitle;
+    hudSub.style.color = focusedChar.accentHex;
+  }
+  const priLabel = document.getElementById("hero-primary-label");
+  if (priLabel) priLabel.textContent = primaryLabel;
+
+  const dotsWrap = document.getElementById("hero-dots");
+  if (dotsWrap) {
+    Array.from(dotsWrap.children).forEach((dot, idx) => {
+      dot.classList.toggle("active", idx === state.heroIndex);
+    });
+  }
+
+  HERO_CHARACTERS.forEach((_, idx) => {
+    const node = document.getElementById(`hero-cutout-${idx}`);
+    if (!node) return;
+    const isFocused = idx === state.heroIndex;
+    const dist = Math.abs(idx - state.heroIndex);
+    node.style.zIndex = String(isFocused ? 16 : Math.max(1, 10 - dist));
+    node.classList.toggle("focused", isFocused);
+    node.classList.toggle("inactive", !isFocused);
+  });
+
+  // Update active show pills and featured rail cleanly in place
+  document.querySelectorAll(".show-pill-btn[data-show-key]").forEach((btn) => {
+    btn.classList.toggle("active", btn.getAttribute("data-show-key") === state.selectedShow);
+  });
+  const featTitle = document.getElementById("featured-show-title");
+  if (featTitle && featTitle.textContent !== state.selectedShow) {
+    const sec = document.getElementById("section-featured-show");
+    if (sec) sec.outerHTML = renderFeaturedShowSection();
+  }
 }
 
 function renderQuickShelfModal() {
@@ -1101,9 +1185,45 @@ function renderActiveTabView() {
   return renderHomeHubView();
 }
 
+function renderFeaturedShowSection() {
+  const selectedShowEps = state.episodes.filter((e) => e.showName === state.selectedShow);
+  return `
+    <section id="section-featured-show">
+      <div class="section-header">
+        <div class="section-title-group">
+          <h2 class="section-title">
+            ${ICONS.sparkle}
+            <span id="featured-show-title">${escapeHtml(state.selectedShow)}</span>
+          </h2>
+          <span class="section-badge">${escapeHtml(SHOW_METADATA[state.selectedShow]?.badge || "1080p HD")}</span>
+        </div>
+        <div class="section-header-actions">
+          <button class="rail-scroll-btn" title="Scroll Left" onclick="window.__scrollRail('rail-featured-show', -1)">${ICONS.chevronLeft}</button>
+          <button class="rail-scroll-btn" title="Scroll Right" onclick="window.__scrollRail('rail-featured-show', 1)">${ICONS.chevronRight}</button>
+          <button
+            class="section-link-btn"
+            data-focusable
+            data-focus-row="row-featured-show-hdr"
+            data-focus-id="home-open-show-hub"
+            onclick="window.__openShowHub('${escapeAttr(state.selectedShow)}')"
+          >
+            <span>All Seasons</span>
+            ${ICONS.chevronRight}
+          </button>
+        </div>
+      </div>
+      <div class="horizontal-rail" id="rail-featured-show">
+        ${selectedShowEps
+          .slice(0, 14)
+          .map((ep, idx) => renderEpisodeCard(ep, `sel-ep-${idx}`, "row-featured-show"))
+          .join("")}
+      </div>
+    </section>
+  `;
+}
+
 function renderHomeHubView() {
   const showKeys = Object.keys(SHOW_METADATA);
-  const selectedShowEps = state.episodes.filter((e) => e.showName === state.selectedShow);
   const historyItems = Object.values(state.watchHistory)
     .sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0))
     .slice(0, 10);
@@ -1118,6 +1238,7 @@ function renderHomeHubView() {
           return `
             <button
               class="show-pill-btn ${isActive ? "active" : ""}"
+              data-show-key="${escapeAttr(key)}"
               data-focusable
               data-focus-row="row-show-pills"
               data-focus-id="show-pill-${idx}"
@@ -1158,37 +1279,7 @@ function renderHomeHubView() {
     }
 
     <!-- Selected Show Latest Episodes Rail -->
-    <section>
-      <div class="section-header">
-        <div class="section-title-group">
-          <h2 class="section-title">
-            ${ICONS.sparkle}
-            <span>${escapeHtml(state.selectedShow)}</span>
-          </h2>
-          <span class="section-badge">${escapeHtml(SHOW_METADATA[state.selectedShow]?.badge || "1080p HD")}</span>
-        </div>
-        <div class="section-header-actions">
-          <button class="rail-scroll-btn" title="Scroll Left" onclick="window.__scrollRail('rail-featured-show', -1)">${ICONS.chevronLeft}</button>
-          <button class="rail-scroll-btn" title="Scroll Right" onclick="window.__scrollRail('rail-featured-show', 1)">${ICONS.chevronRight}</button>
-          <button
-            class="section-link-btn"
-            data-focusable
-            data-focus-row="row-featured-show"
-            data-focus-id="home-open-show-hub"
-            onclick="window.__openShowHub('${escapeAttr(state.selectedShow)}')"
-          >
-            <span>All Seasons</span>
-            ${ICONS.chevronRight}
-          </button>
-        </div>
-      </div>
-      <div class="horizontal-rail" id="rail-featured-show">
-        ${selectedShowEps
-          .slice(0, 14)
-          .map((ep, idx) => renderEpisodeCard(ep, `sel-ep-${idx}`, "row-featured-show"))
-          .join("")}
-      </div>
-    </section>
+    ${renderFeaturedShowSection()}
 
     <!-- All Other Featured Shows Rails -->
     ${showKeys
@@ -1212,7 +1303,7 @@ function renderHomeHubView() {
                 <button
                   class="section-link-btn"
                   data-focusable
-                  data-focus-row="${rowName}"
+                  data-focus-row="${rowName}-hdr"
                   data-focus-id="home-show-more-${sIdx}"
                   onclick="window.__openShowHub('${escapeAttr(showKey)}')"
                 >
@@ -1239,7 +1330,7 @@ function renderHomeHubView() {
         <button
           class="section-link-btn"
           data-focusable
-          data-focus-row="row-home-movies-0"
+          data-focus-row="row-home-movies-hdr"
           data-focus-id="home-movies-all"
           onclick="window.__switchTab('movies')"
         >
@@ -1465,6 +1556,7 @@ function renderEpisodeCard(ep, focusId, rowName = "row-featured-show", progressR
   const safeThumb = resolveSafeImageUrl(ep.thumbnailUrl, ep.showName);
   const badgeLabel = ep.isLiveStream ? "LIVE 24/7" : "1080p HD";
 
+  const prefetchUrl = ep.episodePageUrl || ep.url || "";
   return `
     <button
       class="media-card"
@@ -1472,6 +1564,9 @@ function renderEpisodeCard(ep, focusId, rowName = "row-featured-show", progressR
       data-focusable
       data-focus-row="${escapeAttr(rowName)}"
       data-focus-id="${escapeAttr(focusId)}"
+      data-prefetch-url="${escapeAttr(prefetchUrl)}"
+      data-prefetch-title="${escapeAttr(ep.title)}"
+      onmouseenter="window.__prefetchEl(this)"
       onclick="window.__playEpisodeById('${escapeAttr(ep.id)}', '${escapeAttr(focusId)}')"
     >
       <div class="media-thumb-wrap">
@@ -1479,6 +1574,7 @@ function renderEpisodeCard(ep, focusId, rowName = "row-featured-show", progressR
           src="${escapeAttr(safeThumb)}"
           alt=""
           loading="lazy"
+          decoding="async"
           onerror="window.__onImgErr(this, '${escapeAttr(ep.showName || ep.title)}', '${escapeAttr(badgeLabel)}')"
         />
         <span class="media-badge-top ${ep.isLiveStream ? "media-badge-live" : ""}">
@@ -1515,6 +1611,9 @@ function renderMovieCard(mov, focusId, rowName = "row-movies-grid-0") {
       data-focusable
       data-focus-row="${escapeAttr(rowName)}"
       data-focus-id="${escapeAttr(focusId)}"
+      data-prefetch-url="${escapeAttr(mov.moviePageUrl || "")}"
+      data-prefetch-title="${escapeAttr(mov.title)}"
+      onmouseenter="window.__prefetchEl(this)"
       onclick="window.__playMovieById('${escapeAttr(mov.id)}', '${escapeAttr(focusId)}')"
     >
       <div class="movie-poster-wrap">
@@ -1522,6 +1621,7 @@ function renderMovieCard(mov, focusId, rowName = "row-movies-grid-0") {
           src="${escapeAttr(safePoster)}"
           alt=""
           loading="lazy"
+          decoding="async"
           onerror="window.__onImgErr(this, '${escapeAttr(mov.title)}', '${escapeAttr(mov.qualityBadge || "1080P HD")}')"
         />
         <span class="media-badge-top">${escapeHtml(mov.qualityBadge || "1080p HDRip")}</span>
@@ -1568,7 +1668,7 @@ function renderMobileBottomNav() {
   `;
 }
 
-function renderSearchModal() {
+function renderSearchResultsMarkup() {
   const q = state.searchQuery.trim().toLowerCase();
   const matchedEps = q
     ? state.episodes.filter(
@@ -1583,6 +1683,78 @@ function renderSearchModal() {
     ? state.movies.filter((m) => m.title.toLowerCase().includes(q))
     : state.movies.slice(0, 4);
 
+  return `
+    <div>
+      <div style="font-size:11.5px; font-weight:800; color:var(--accent-cyan); text-transform:uppercase; margin-bottom:8px;">
+        Episodes (${matchedEps.length})
+      </div>
+      <div class="shelf-episodes-list">
+        ${matchedEps
+          .slice(0, 8)
+          .map((ep, idx) => {
+            const safeThumb = resolveSafeImageUrl(ep.thumbnailUrl, ep.showName);
+            return `
+            <button
+              class="shelf-ep-item"
+              data-focusable
+              data-focus-row="search-ep-row-${idx}"
+              data-focus-id="search-ep-${idx}"
+              onclick="window.__closeSearch(); window.__playEpisodeById('${escapeAttr(ep.id)}')"
+            >
+              <div class="shelf-ep-thumb">
+                <img src="${escapeAttr(safeThumb)}" alt="" decoding="async" onerror="window.__onImgErr(this, '${escapeAttr(ep.showName)}', '1080P')" />
+              </div>
+              <div style="flex:1; min-width:0;">
+                <div style="font-size:13.5px; font-weight:800; color:#fff;">${escapeHtml(ep.title)}</div>
+                <div style="font-size:11px; color:var(--text-secondary); margin-top:2px;">${escapeHtml(ep.showName)} • ${escapeHtml(ep.date)}</div>
+              </div>
+            </button>
+          `;
+          })
+          .join("")}
+      </div>
+    </div>
+
+    ${
+      matchedMovies.length > 0
+        ? `
+      <div>
+        <div style="font-size:11.5px; font-weight:800; color:var(--accent-gold); text-transform:uppercase; margin-bottom:8px;">
+          Movies (${matchedMovies.length})
+        </div>
+        <div class="shelf-episodes-list">
+          ${matchedMovies
+            .slice(0, 6)
+            .map((mov, idx) => {
+              const safePoster = resolveSafeImageUrl(mov.posterUrl, mov.title);
+              return `
+              <button
+                class="shelf-ep-item"
+                data-focusable
+                data-focus-row="search-mov-row-${idx}"
+                data-focus-id="search-mov-${idx}"
+                onclick="window.__closeSearch(); window.__playMovieById('${escapeAttr(mov.id)}')"
+              >
+                <div class="shelf-ep-thumb">
+                  <img src="${escapeAttr(safePoster)}" alt="" decoding="async" onerror="window.__onImgErr(this, '${escapeAttr(mov.title)}', '1080P')" />
+                </div>
+                <div style="flex:1; min-width:0;">
+                  <div style="font-size:13.5px; font-weight:800; color:#fff;">${escapeHtml(mov.title)}</div>
+                  <div style="font-size:11px; color:var(--text-secondary); margin-top:2px;">${escapeHtml(mov.languageAndYear)} • ${escapeHtml(mov.qualityBadge)}</div>
+                </div>
+              </button>
+            `;
+            })
+            .join("")}
+        </div>
+      </div>
+    `
+        : ""
+    }
+  `;
+}
+
+function renderSearchModal() {
   return `
     <div class="modal-backdrop" onclick="if(event.target===this) window.__closeSearch()">
       <div class="modal-card" style="max-width:740px; max-height:86dvh; overflow:hidden;">
@@ -1608,74 +1780,8 @@ function renderSearchModal() {
           style="width:100%; padding:13px 16px; border-radius:12px; border:1.5px solid var(--border-bright); background:#070a12; color:#fff; font-size:14.5px; outline:none;"
         />
 
-        <div style="overflow-y:auto; display:flex; flex-direction:column; gap:14px; padding-right:4px;">
-          <div>
-            <div style="font-size:11.5px; font-weight:800; color:var(--accent-cyan); text-transform:uppercase; margin-bottom:8px;">
-              Episodes (${matchedEps.length})
-            </div>
-            <div class="shelf-episodes-list">
-              ${matchedEps
-                .slice(0, 8)
-                .map((ep, idx) => {
-                  const safeThumb = resolveSafeImageUrl(ep.thumbnailUrl, ep.showName);
-                  return `
-                  <button
-                    class="shelf-ep-item"
-                    data-focusable
-                    data-focus-row="search-ep-row-${idx}"
-                    data-focus-id="search-ep-${idx}"
-                    onclick="window.__closeSearch(); window.__playEpisodeById('${escapeAttr(ep.id)}')"
-                  >
-                    <div class="shelf-ep-thumb">
-                      <img src="${escapeAttr(safeThumb)}" alt="" onerror="window.__onImgErr(this, '${escapeAttr(ep.showName)}', '1080P')" />
-                    </div>
-                    <div style="flex:1; min-width:0;">
-                      <div style="font-size:13.5px; font-weight:800; color:#fff;">${escapeHtml(ep.title)}</div>
-                      <div style="font-size:11px; color:var(--text-secondary); margin-top:2px;">${escapeHtml(ep.showName)} • ${escapeHtml(ep.date)}</div>
-                    </div>
-                  </button>
-                `;
-                })
-                .join("")}
-            </div>
-          </div>
-
-          ${
-            matchedMovies.length > 0
-              ? `
-            <div>
-              <div style="font-size:11.5px; font-weight:800; color:var(--accent-gold); text-transform:uppercase; margin-bottom:8px;">
-                Movies (${matchedMovies.length})
-              </div>
-              <div class="shelf-episodes-list">
-                ${matchedMovies
-                  .slice(0, 6)
-                  .map((mov, idx) => {
-                    const safePoster = resolveSafeImageUrl(mov.posterUrl, mov.title);
-                    return `
-                    <button
-                      class="shelf-ep-item"
-                      data-focusable
-                      data-focus-row="search-mov-row-${idx}"
-                      data-focus-id="search-mov-${idx}"
-                      onclick="window.__closeSearch(); window.__playMovieById('${escapeAttr(mov.id)}')"
-                    >
-                      <div class="shelf-ep-thumb">
-                        <img src="${escapeAttr(safePoster)}" alt="" onerror="window.__onImgErr(this, '${escapeAttr(mov.title)}', '1080P')" />
-                      </div>
-                      <div style="flex:1; min-width:0;">
-                        <div style="font-size:13.5px; font-weight:800; color:#fff;">${escapeHtml(mov.title)}</div>
-                        <div style="font-size:11px; color:var(--text-secondary); margin-top:2px;">${escapeHtml(mov.languageAndYear)} • ${escapeHtml(mov.qualityBadge)}</div>
-                      </div>
-                    </button>
-                  `;
-                  })
-                  .join("")}
-              </div>
-            </div>
-          `
-              : ""
-          }
+        <div id="rasagulla-search-results" style="overflow-y:auto; display:flex; flex-direction:column; gap:14px; padding-right:4px;">
+          ${renderSearchResultsMarkup()}
         </div>
       </div>
     </div>
@@ -2016,15 +2122,28 @@ function updatePlayerHudInPlace() {
 
 function pushModalHistoryState(modalName) {
   try {
+    state.modalHistoryDepth += 1;
     window.history.pushState({ rasagullaModal: modalName }, "");
   } catch (_) {}
+}
+
+function popModalHistoryIfNeeded() {
+  if (state.modalHistoryDepth > 0) {
+    state.modalHistoryDepth -= 1;
+    state.ignoreNextPopstate = true;
+    try {
+      window.history.back();
+    } catch (_) {
+      state.ignoreNextPopstate = false;
+    }
+  }
 }
 
 async function startPlayback(mediaItem, launchedFromFocusId) {
   if (launchedFromFocusId) {
     state.lastLaunchedCardFocusId = launchedFromFocusId;
   }
-  destroyActiveVideo();
+  destroyActiveVideo(false);
 
   state.player.open = true;
   state.player.episode = mediaItem;
@@ -2036,6 +2155,8 @@ async function startPlayback(mediaItem, launchedFromFocusId) {
   state.player.isLive = Boolean(mediaItem.isLiveStream);
   state.player.currentTime = 0;
   state.player.duration = 0;
+  state.player.lastRenderedSec = -1;
+  state.player.hlsRecoveryAttempts = 0;
   state.player.useProxy = false;
   state.player.hudVisible = true;
 
@@ -2058,18 +2179,9 @@ async function startPlayback(mediaItem, launchedFromFocusId) {
   }
 
   const targetUrl = mediaItem.episodePageUrl || mediaItem.moviePageUrl || "";
-  try {
-    const q = new URLSearchParams({
-      url: targetUrl,
-      title: mediaItem.title || mediaItem.showName || "",
-    });
-    const res = await fetch(`/api/stream?${q.toString()}`);
-    const data = await res.json();
-    if (Array.isArray(data.sources) && data.sources.length > 0) {
-      state.player.sources = data.sources;
-    }
-  } catch (err) {
-    console.warn("Stream resolve fallback:", err);
+  const resolved = await resolveStreamWithCache(targetUrl, mediaItem.title || mediaItem.showName || "");
+  if (Array.isArray(resolved) && resolved.length > 0) {
+    state.player.sources = resolved;
   }
 
   if (state.player.sources.length === 0) {
@@ -2103,22 +2215,30 @@ async function startPlayback(mediaItem, launchedFromFocusId) {
   mountActiveStreamSource();
 }
 
-function destroyActiveVideo() {
+function destroyActiveVideo(resetDomElement = true) {
   clearInterval(state.player.progressInterval);
   clearTimeout(state.player.hudTimer);
+  if (state.player.unmuteAbort) {
+    try {
+      state.player.unmuteAbort.abort();
+    } catch (_) {}
+    state.player.unmuteAbort = null;
+  }
   if (state.player.hlsInstance) {
     try {
       state.player.hlsInstance.destroy();
     } catch (_) {}
     state.player.hlsInstance = null;
   }
-  const vid = document.getElementById("rasagulla-video-el");
-  if (vid) {
-    try {
-      vid.pause();
-      vid.removeAttribute("src");
-      vid.load();
-    } catch (_) {}
+  if (resetDomElement) {
+    const vid = document.getElementById("rasagulla-video-el");
+    if (vid) {
+      try {
+        vid.pause();
+        vid.removeAttribute("src");
+        vid.load();
+      } catch (_) {}
+    }
   }
 }
 
@@ -2127,23 +2247,29 @@ function safePlayVideo(video) {
   const playPromise = video.play();
   if (playPromise && typeof playPromise.catch === "function") {
     playPromise.catch(() => {
-      // If TV browser blocked unmuted autoplay, start muted and unmute on next key/click
+      if (!state.player.open) return;
       video.muted = true;
       video.play().catch(() => {});
       showToast("Playing — Press OK or Tap to Unmute Audio");
+      if (state.player.unmuteAbort) {
+        try {
+          state.player.unmuteAbort.abort();
+        } catch (_) {}
+      }
+      const abort = new AbortController();
+      state.player.unmuteAbort = abort;
       const unmuteOnce = () => {
         video.muted = false;
-        window.removeEventListener("keydown", unmuteOnce);
-        window.removeEventListener("click", unmuteOnce);
+        abort.abort();
       };
-      window.addEventListener("keydown", unmuteOnce, { once: true });
-      window.addEventListener("click", unmuteOnce, { once: true });
+      window.addEventListener("keydown", unmuteOnce, { once: true, signal: abort.signal });
+      window.addEventListener("click", unmuteOnce, { once: true, signal: abort.signal });
     });
   }
 }
 
 function mountActiveStreamSource() {
-  destroyActiveVideo();
+  destroyActiveVideo(false);
 
   const p = state.player;
   const srcObj = p.sources[p.activeSourceIndex];
@@ -2154,6 +2280,7 @@ function mountActiveStreamSource() {
       srcObj.isLive ||
       /live1channel|live2channel|watch-live-stream/i.test(srcObj.url || "")
   );
+  p.hlsRecoveryAttempts = 0;
 
   updatePlayerHudInPlace();
   scheduleHudAutoHide();
@@ -2169,7 +2296,13 @@ function mountActiveStreamSource() {
   const iframeSlot = document.getElementById("rasagulla-iframe-slot");
 
   if (srcObj.type === "iframe") {
-    if (video) video.style.display = "none";
+    if (video) {
+      try {
+        video.pause();
+        video.removeAttribute("src");
+      } catch (_) {}
+      video.style.display = "none";
+    }
     if (iframeSlot) {
       iframeSlot.style.display = "block";
       iframeSlot.innerHTML = `
@@ -2197,6 +2330,11 @@ function mountActiveStreamSource() {
     ? srcObj.proxiedUrl || `/api/proxy?url=${encodeURIComponent(srcObj.rawUrl || srcObj.url)}`
     : srcObj.url;
 
+  const isCurrentlyProxied =
+    Boolean(srcObj.isProxiedByDefault) ||
+    rawOrProxiedUrl.startsWith("/api/proxy") ||
+    rawOrProxiedUrl === srcObj.proxiedUrl;
+
   const savedEntry = state.watchHistory[p.episode?.id];
   const resumeSec = !p.isLive && savedEntry && savedEntry.positionSec > 5 ? savedEntry.positionSec : 0;
 
@@ -2207,8 +2345,11 @@ function mountActiveStreamSource() {
   ) {
     const hls = new window.Hls({
       enableWorker: true,
-      lowLatencyMode: true,
+      lowLatencyMode: p.isLive,
       maxBufferLength: 30,
+      maxMaxBufferLength: 60,
+      manifestLoadingTimeOut: 9000,
+      fragLoadingTimeOut: 12000,
     });
     p.hlsInstance = hls;
     hls.loadSource(rawOrProxiedUrl);
@@ -2223,20 +2364,32 @@ function mountActiveStreamSource() {
     });
 
     hls.on(window.Hls.Events.ERROR, (_ev, data) => {
-      if (data.fatal) {
-        if (!p.useProxy) {
-          p.useProxy = true;
-          showToast("Engaging Proxy Boost for 1080p stream...");
-          mountActiveStreamSource();
-        } else if (p.activeSourceIndex + 1 < p.sources.length) {
-          p.useProxy = false;
-          p.activeSourceIndex += 1;
-          showToast(`Switching to ${p.sources[p.activeSourceIndex].label}`);
-          mountActiveStreamSource();
-        } else {
-          p.error = "Unable to reach upstream video server. Try another mirror.";
-          updatePlayerHudInPlace();
-        }
+      if (!data.fatal) return;
+
+      // 1. Recover transient decode/network hiccups once before switching mirrors
+      if (data.type === window.Hls.ErrorTypes.MEDIA_ERROR && p.hlsRecoveryAttempts < 1) {
+        p.hlsRecoveryAttempts += 1;
+        hls.recoverMediaError();
+        return;
+      }
+
+      // 2. Engage Proxy only if current URL is not already proxied
+      if (!isCurrentlyProxied && !p.useProxy && srcObj.proxiedUrl && srcObj.proxiedUrl !== rawOrProxiedUrl) {
+        p.useProxy = true;
+        showToast("Engaging Proxy Boost for 1080p stream...");
+        mountActiveStreamSource();
+        return;
+      }
+
+      // 3. Advance to next mirror immediately
+      if (p.activeSourceIndex + 1 < p.sources.length) {
+        p.useProxy = false;
+        p.activeSourceIndex += 1;
+        showToast(`Switching to ${p.sources[p.activeSourceIndex].label}`);
+        mountActiveStreamSource();
+      } else {
+        p.error = "Unable to reach upstream video server. Try another mirror.";
+        updatePlayerHudInPlace();
       }
     });
   } else {
@@ -2252,8 +2405,12 @@ function mountActiveStreamSource() {
     video.addEventListener(
       "error",
       () => {
-        if (!p.useProxy) {
+        if (!isCurrentlyProxied && !p.useProxy && srcObj.proxiedUrl && srcObj.proxiedUrl !== rawOrProxiedUrl) {
           p.useProxy = true;
+          mountActiveStreamSource();
+        } else if (p.activeSourceIndex + 1 < p.sources.length) {
+          p.useProxy = false;
+          p.activeSourceIndex += 1;
           mountActiveStreamSource();
         }
       },
@@ -2270,15 +2427,20 @@ function mountActiveStreamSource() {
     updatePlayPauseIcon();
   };
   video.ontimeupdate = () => {
-    p.currentTime = video.currentTime || 0;
+    const cur = video.currentTime || 0;
     const dur = video.duration;
+    p.currentTime = cur;
     if (Number.isFinite(dur) && dur > 0) {
       if (dur <= 60 && /live/i.test(srcObj.label + " " + srcObj.url)) {
         p.isLive = true;
       }
       p.duration = dur;
     }
-    updateSeekDom();
+    const sec = Math.floor(cur);
+    if (sec !== p.lastRenderedSec) {
+      p.lastRenderedSec = sec;
+      updateSeekDom();
+    }
   };
 
   p.progressInterval = setInterval(() => {
@@ -2346,6 +2508,10 @@ function scheduleHudAutoHide() {
 // GLOBAL WINDOW ACTIONS (INVOKED BY UI & REMOTE KEYS)
 // ============================================================================
 
+window.__prefetchEl = function (el) {
+  scheduleStreamPrefetchForEl(el);
+};
+
 window.__switchTab = function (tabId) {
   state.activeTab = tabId;
   state.shelfOpenForShow = null;
@@ -2365,9 +2531,13 @@ window.__selectHeroChar = function (index, triggerAction = false) {
   if (char && char.targetShow) {
     state.selectedShow = char.targetShow;
   }
-  renderApp();
-  const btn = document.querySelector('[data-focus-id="hero-primary-btn"]');
-  if (btn) applyTvFocus(btn, false);
+  if (document.getElementById("hero-hud-header")) {
+    updateHeroStageInPlace();
+    const btn = document.querySelector('[data-focus-id="hero-primary-btn"]');
+    if (btn) applyTvFocus(btn, false);
+  } else {
+    renderApp();
+  }
   if (triggerAction) {
     window.__playHeroFeatured();
   }
@@ -2379,9 +2549,13 @@ window.__cycleHero = function (delta) {
   if (char && char.targetShow) {
     state.selectedShow = char.targetShow;
   }
-  renderApp();
-  const btn = document.querySelector('[data-focus-id="hero-primary-btn"]');
-  if (btn) applyTvFocus(btn, false);
+  if (document.getElementById("hero-hud-header")) {
+    updateHeroStageInPlace();
+    const btn = document.querySelector('[data-focus-id="hero-primary-btn"]');
+    if (btn) applyTvFocus(btn, false);
+  } else {
+    renderApp();
+  }
 };
 
 window.__playHeroFeatured = function () {
@@ -2425,8 +2599,9 @@ window.__activateHeroChar = function () {
   }, 40);
 };
 
-window.__closeShelfModal = function () {
+window.__closeShelfModal = function (fromPopstate = false) {
   state.shelfOpenForShow = null;
+  if (!fromPopstate) popModalHistoryIfNeeded();
   renderApp();
   const heroBtn = document.querySelector('[data-focus-id="hero-primary-btn"]');
   if (heroBtn) applyTvFocus(heroBtn, false);
@@ -2456,7 +2631,13 @@ window.__selectShowPill = function (showName) {
   if (charIdx >= 0) {
     state.heroIndex = charIdx;
   }
-  renderApp();
+  if (state.activeTab === "home" && document.getElementById("hero-hud-header")) {
+    updateHeroStageInPlace();
+    const activePill = document.querySelector(`.show-pill-btn[data-show-key="${CSS.escape(showName)}"]`);
+    if (activePill) applyTvFocus(activePill, false);
+  } else {
+    renderApp();
+  }
 };
 
 window.__selectSeason = async function (seasonId) {
@@ -2500,27 +2681,28 @@ window.__openSearch = function () {
   setTimeout(() => {
     const input = document.getElementById("rasagulla-search-input");
     if (input) input.focus();
-  }, 50);
+  }, 40);
 };
 
-window.__closeSearch = function () {
+window.__closeSearch = function (fromPopstate = false) {
   state.searchModalOpen = false;
+  if (!fromPopstate) popModalHistoryIfNeeded();
   renderApp();
 };
 
 window.__updateSearchQuery = function (val) {
   state.searchQuery = val;
-  renderApp();
-  const input = document.getElementById("rasagulla-search-input");
-  if (input) {
-    input.focus();
-    input.setSelectionRange(input.value.length, input.value.length);
+  const resultsEl = document.getElementById("rasagulla-search-results");
+  if (resultsEl) {
+    resultsEl.innerHTML = renderSearchResultsMarkup();
+  } else {
+    renderApp();
   }
 };
 
 window.__refreshFeeds = function () {
   showToast("Refreshing live shows & movie feeds...");
-  fetchLiveCatalog(false);
+  fetchLiveCatalog(false, true);
 };
 
 window.__playLive24x7 = function () {
@@ -2532,6 +2714,7 @@ window.__playEpisodeById = function (epId, focusId) {
   state.shelfOpenForShow = null;
   const found =
     state.episodes.find((e) => e.id === epId) ||
+    (state.seasonEpisodes || []).find((e) => e.id === epId) ||
     state.myList.find((e) => e.id === epId) ||
     state.watchHistory[epId];
   if (found) {
@@ -2718,12 +2901,13 @@ window.__toggleCurrentEpisodeMyList = function () {
   }
 };
 
-window.__confirmClosePlayer = function () {
-  destroyActiveVideo();
+window.__confirmClosePlayer = function (fromPopstate = false) {
+  destroyActiveVideo(true);
   if (document.fullscreenElement && document.exitFullscreen) {
     document.exitFullscreen().catch(() => {});
   }
   state.player.open = false;
+  if (!fromPopstate) popModalHistoryIfNeeded();
   const modal = document.getElementById("rasagulla-player-modal");
   if (modal) modal.remove();
   renderApp();
@@ -2747,16 +2931,21 @@ window.__confirmClosePlayer = function () {
 function setupSpatialDpadNavigation() {
   // 1. Hardware Back button on Android TV Browsers triggers history popstate
   window.addEventListener("popstate", () => {
+    if (state.ignoreNextPopstate) {
+      state.ignoreNextPopstate = false;
+      return;
+    }
+    state.modalHistoryDepth = Math.max(0, state.modalHistoryDepth - 1);
     if (state.player.open) {
-      window.__confirmClosePlayer();
+      window.__confirmClosePlayer(true);
       return;
     }
     if (state.searchModalOpen) {
-      window.__closeSearch();
+      window.__closeSearch(true);
       return;
     }
     if (state.shelfOpenForShow) {
-      window.__closeShelfModal();
+      window.__closeShelfModal(true);
       return;
     }
   });

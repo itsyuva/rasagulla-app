@@ -54,10 +54,12 @@ input {
    Matches :focus, :focus-visible, AND .tv-focused so every TV browser works
    ========================================================================== */
 [data-focusable] {
-  transition: transform 0.18s cubic-bezier(0.2, 0.9, 0.3, 1),
-    box-shadow 0.18s ease,
-    border-color 0.18s ease,
-    background-color 0.18s ease;
+  scroll-margin-top: 84px;
+  scroll-margin-bottom: 84px;
+  transition: transform 0.14s cubic-bezier(0.2, 0.9, 0.3, 1),
+    box-shadow 0.14s ease,
+    border-color 0.14s ease,
+    background-color 0.14s ease;
   outline: none !important;
   cursor: pointer;
 }
@@ -65,7 +67,7 @@ input {
 [data-focusable]:focus,
 [data-focusable]:focus-visible,
 [data-focusable].tv-focused {
-  transform: scale(1.06);
+  transform: scale(1.055) translateZ(0);
   border-color: #ffffff !important;
   box-shadow: 0 0 0 3px #ffffff, 0 0 0 6px var(--accent-crimson), 0 14px 34px rgba(0, 0, 0, 0.92) !important;
   z-index: 40 !important;
@@ -252,15 +254,36 @@ input {
   flex-shrink: 0;
 }
 
-.tv-top-nav-pills {
+.tv-top-breadcrumb {
   display: flex;
   align-items: center;
-  gap: 8px;
-  overflow-x: auto;
-  scrollbar-width: none;
+  gap: 10px;
+  min-width: 0;
 }
 
-.tv-top-nav-pills::-webkit-scrollbar {
+.tv-top-kicker {
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.9px;
+  text-transform: uppercase;
+  color: var(--accent-cyan);
+  background: rgba(0, 229, 255, 0.12);
+  border: 1px solid rgba(0, 229, 255, 0.3);
+  padding: 3px 9px;
+  border-radius: 99px;
+  white-space: nowrap;
+}
+
+.tv-top-title {
+  font-size: 14.5px;
+  font-weight: 900;
+  color: #ffffff;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.tv-top-nav-pills {
   display: none;
 }
 
@@ -407,8 +430,7 @@ input {
   gap: 6px;
   padding: 4px 11px;
   border-radius: 99px;
-  background: rgba(255, 255, 255, 0.09);
-  backdrop-filter: blur(8px);
+  background: rgba(18, 24, 38, 0.88);
   border: 1px solid rgba(255, 255, 255, 0.16);
   color: #e2e8f0;
   font-size: 11px;
@@ -425,8 +447,9 @@ input {
   display: flex;
   align-items: center;
   gap: 8px;
-  transition: left 0.3s cubic-bezier(0.2, 0.9, 0.3, 1);
+  transition: left 0.24s cubic-bezier(0.2, 0.9, 0.3, 1);
   pointer-events: none;
+  will-change: left;
 }
 
 .cluster-hud-title {
@@ -449,6 +472,7 @@ input {
   position: relative;
   width: 100%;
   height: 100%;
+  contain: layout style;
 }
 
 .cluster-cutout-node {
@@ -456,15 +480,15 @@ input {
   bottom: 48px;
   width: 185px;
   height: 248px;
-  transform: translateX(-50%);
-  transition: left 0.32s cubic-bezier(0.2, 0.9, 0.3, 1),
-    transform 0.28s cubic-bezier(0.2, 0.9, 0.3, 1),
-    opacity 0.25s ease,
-    filter 0.25s ease;
+  transform: translate3d(-50%, 0, 0) scale(0.95);
+  transition: transform 0.24s cubic-bezier(0.2, 0.9, 0.3, 1),
+    opacity 0.22s ease,
+    filter 0.22s ease;
   cursor: pointer;
   display: flex;
   align-items: flex-end;
   justify-content: center;
+  will-change: transform, opacity;
 }
 
 .cluster-cutout-node img {
@@ -477,13 +501,13 @@ input {
 }
 
 .cluster-cutout-node.inactive img {
-  filter: grayscale(75%) brightness(0.85) contrast(1.05);
-  opacity: 0.85;
+  filter: grayscale(68%) brightness(0.84) contrast(1.04);
+  opacity: 0.84;
 }
 
 .cluster-cutout-node.focused {
   z-index: 16 !important;
-  transform: translateX(-50%) scale(1.16);
+  transform: translate3d(-50%, 0, 0) scale(1.16);
 }
 
 .cluster-cutout-node.focused img {
@@ -520,8 +544,7 @@ input {
   height: 44px;
   border-radius: 50%;
   border: 1.5px solid var(--border-bright);
-  background: rgba(15, 19, 30, 0.88);
-  backdrop-filter: blur(10px);
+  background: rgba(15, 19, 30, 0.92);
   color: #fff;
   display: flex;
   align-items: center;
@@ -577,8 +600,7 @@ input {
   height: 44px;
   padding: 0 18px;
   border-radius: 99px;
-  background: rgba(20, 26, 40, 0.86);
-  backdrop-filter: blur(12px);
+  background: rgba(20, 26, 40, 0.92);
   color: #ffffff;
   font-size: 13px;
   font-weight: 800;
@@ -780,6 +802,7 @@ input {
   position: relative;
   text-align: left;
   color: var(--text-primary);
+  contain: layout style;
 }
 
 .media-card:hover {
@@ -799,7 +822,7 @@ input {
   width: 100%;
   height: 100%;
   object-fit: cover;
-  transition: transform 0.3s ease;
+  transition: transform 0.24s ease;
 }
 
 .media-card:hover .media-thumb-wrap img {
@@ -814,7 +837,7 @@ input {
   align-items: center;
   justify-content: center;
   opacity: 0;
-  transition: opacity 0.2s ease;
+  transition: opacity 0.16s ease;
 }
 
 .media-card:hover .media-play-badge-center,
@@ -845,8 +868,7 @@ input {
   position: absolute;
   top: 8px;
   left: 8px;
-  background: rgba(5, 6, 10, 0.86);
-  backdrop-filter: blur(8px);
+  background: rgba(5, 6, 10, 0.88);
   color: var(--accent-gold);
   font-size: 10px;
   font-weight: 800;
@@ -1124,9 +1146,8 @@ input {
   width: 44px;
   height: 44px;
   border-radius: 50%;
-  background: rgba(20, 24, 36, 0.82);
-  backdrop-filter: blur(12px);
-  border: 2px solid rgba(255, 255, 255, 0.25);
+  background: rgba(20, 24, 36, 0.9);
+  border: 2px solid rgba(255, 255, 255, 0.28);
   color: #ffffff;
   display: inline-flex;
   align-items: center;
@@ -1183,9 +1204,8 @@ input {
   width: 58px;
   height: 58px;
   border-radius: 50%;
-  background: rgba(15, 19, 30, 0.78);
-  backdrop-filter: blur(14px);
-  border: 2px solid rgba(255, 255, 255, 0.3);
+  background: rgba(15, 19, 30, 0.88);
+  border: 2px solid rgba(255, 255, 255, 0.32);
   color: #ffffff;
   display: flex;
   align-items: center;
@@ -1201,7 +1221,7 @@ input {
 .transport-circle-btn.main-play-pause {
   width: 76px;
   height: 76px;
-  background: rgba(229, 9, 20, 0.94);
+  background: rgba(229, 9, 20, 0.96);
   border: 2.5px solid #ffffff;
   box-shadow: 0 8px 32px rgba(229, 9, 20, 0.6);
 }
@@ -1250,7 +1270,7 @@ input {
   width: 100%;
   padding: 6px 14px;
   border-radius: 10px;
-  background: rgba(255, 255, 255, 0.07);
+  background: rgba(255, 255, 255, 0.08);
   border: 1px solid rgba(255, 255, 255, 0.14);
 }
 
@@ -1284,8 +1304,7 @@ input {
   height: 36px;
   padding: 0 14px;
   border-radius: 99px;
-  background: rgba(20, 25, 38, 0.88);
-  backdrop-filter: blur(10px);
+  background: rgba(20, 25, 38, 0.92);
   border: 1.5px solid rgba(255, 255, 255, 0.24);
   color: #e2e8f0;
   font-size: 12px;
@@ -1405,7 +1424,7 @@ input {
   .tv-left-rail {
     display: none;
   }
-  .tv-top-nav-pills {
+  .tv-top-breadcrumb {
     display: none;
   }
   .mobile-brand {
